@@ -16,6 +16,7 @@ import os
 from random import shuffle
 import json
 import HTSeq
+from collections import Counter
 
 #my own modules
 import fromasciitodf as fa
@@ -287,7 +288,17 @@ def make_alignment_report_df(maindir,shorthand):
     demux.to_pickle(maindir+expt_name+'_demux')
     return(alignment_report,alignment_report_nor)
 
+def prune_bin_from_fasta(input_dir):
+    # this is post-reassembly stuff
+    fasta_files = [f for f in os.listdir(input_dir) if 'fasta' in f]
 
+    for fasta in fasta_files:
+        bin_num = fasta.split('.')[1]
+
+    a = Counter(string)
+    (a['G']+a['C'])/len(string)
+    #do something
+    return(output)
 
 
 def plot_main_features(df,expt_name,savepath):

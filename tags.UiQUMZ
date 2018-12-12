@@ -1,0 +1,293 @@
+pd	hdbscan_plot.py	/^import pandas as pd$/;"	i
+np	hdbscan_plot.py	/^import numpy as np$/;"	i
+matplotlib	hdbscan_plot.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	hdbscan_plot.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	hdbscan_plot.py	/^import seaborn as sns$/;"	i
+gridspec	hdbscan_plot.py	/^from matplotlib import gridspec$/;"	i
+ast	hdbscan_plot.py	/^import ast$/;"	i
+sys	hdbscan_plot.py	/^import sys$/;"	i
+hdbscan	hdbscan_plot.py	/^import hdbscan$/;"	i
+time	hdbscan_plot.py	/^import time$/;"	i
+HDBscan_plot	hdbscan_plot.py	/^def HDBscan_plot(df,perplexity,norm,args,kwds,plot_kwds):$/;"	f
+path	hdbscan_plot.py	/^path = sys.argv[1]$/;"	v
+name	hdbscan_plot.py	/^name = sys.argv[2]$/;"	v
+data	hdbscan_plot.py	/^data = pd.read_pickle(path+name)$/;"	v
+perps	hdbscan_plot.py	/^perps = [30,40,50,60,70,80]$/;"	v
+hdbkwds	hdbscan_plot.py	/^hdbkwds = {'min_cluster_size':int(sys.argv[3]),'min_samples':int(sys.argv[4]),'cluster_selection_method':'leaf','alpha':1.0} # default cluster_selection_method = 'eom' (excess of mass)$/;"	v
+hdbargs	hdbscan_plot.py	/^hdbargs = ()$/;"	v
+pltkwds	hdbscan_plot.py	/^pltkwds = {'alpha' : 0.3, 'linewidths':0}$/;"	v
+pd	copy_obsidian_mags.py	/^import pandas as pd$/;"	i
+np	copy_obsidian_mags.py	/^import numpy as np$/;"	i
+matplotlib	copy_obsidian_mags.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	copy_obsidian_mags.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	copy_obsidian_mags.py	/^import seaborn as sns$/;"	i
+gridspec	copy_obsidian_mags.py	/^from matplotlib import gridspec$/;"	i
+ast	copy_obsidian_mags.py	/^import ast$/;"	i
+sys	copy_obsidian_mags.py	/^import sys$/;"	i
+fa	copy_obsidian_mags.py	/^import fromasciitodf as fa$/;"	i
+listdir	copy_obsidian_mags.py	/^from os import listdir$/;"	i
+isfile	copy_obsidian_mags.py	/^from os.path import isfile, join$/;"	i
+join	copy_obsidian_mags.py	/^from os.path import isfile, join$/;"	i
+copyfile	copy_obsidian_mags.py	/^from shutil import copyfile$/;"	i
+path	copy_obsidian_mags.py	/^path = '\/home\/datastorage\/IMG_ANNOTATION_DATA\/Obsidian_MAGs\/'$/;"	v
+obsidian_dirs	copy_obsidian_mags.py	/^obsidian_dirs = [f for f in listdir(path) if 'Knumbers' not in f and 'NN_MAGs' not in f]$/;"	v
+newpath	copy_obsidian_mags.py	/^newpath = '\/home\/datastorage\/IMG_ANNOTATION_DATA\/Obsidian_proteins\/'$/;"	v
+filepath	copy_obsidian_mags.py	/^    filepath = path+mag+'\/IMG_Data\/'+mag[-10:]+'\/'+mag[-10:]$/;"	v
+gff	copy_obsidian_mags.py	/^    gff = filepath+'.gff'$/;"	v
+faa	copy_obsidian_mags.py	/^    faa = filepath+'.genes.faa'$/;"	v
+newgff	copy_obsidian_mags.py	/^    newgff = newpath+mag[0:-15]+'.gff'$/;"	v
+newfaa	copy_obsidian_mags.py	/^    newfaa = newpath+mag[0:-15]+'.genes.faa'$/;"	v
+platform	py_version.py	/^import platform$/;"	i
+python_version	py_version.py	/^python_version = platform.python_version()$/;"	v
+pd	plottsne.py	/^import pandas as pd$/;"	i
+np	plottsne.py	/^import numpy as np$/;"	i
+matplotlib	plottsne.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	plottsne.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	plottsne.py	/^import seaborn as sns$/;"	i
+gridspec	plottsne.py	/^from matplotlib import gridspec$/;"	i
+ast	plottsne.py	/^import ast$/;"	i
+sys	plottsne.py	/^import sys$/;"	i
+fa	plottsne.py	/^import fromasciitodf as fa$/;"	i
+listdir	plottsne.py	/^from os import listdir$/;"	i
+isfile	plottsne.py	/^from os.path import isfile, join$/;"	i
+join	plottsne.py	/^from os.path import isfile, join$/;"	i
+path	plottsne.py	/^path = sys.argv[1] #folder containing ascii files that are the output of the fast-tSNE (barnes-hutt) on the singlecell cluster$/;"	v
+files	plottsne.py	/^files = [f for f in listdir(path) if isfile(join(path, f))]$/;"	v
+namstr	plottsne.py	/^    namstr = fil[0:-4]$/;"	v
+binna	plottsne.py	/^    binna = namstr[36:]$/;"	v
+per	plottsne.py	/^    per = namstr[0:35]$/;"	v
+name	plottsne.py	/^    name = binna+'_'+per$/;"	v
+a	plottsne.py	/^    a = list(open(path+fil))$/;"	v
+perplexity	plottsne.py	/^    perplexity = fil[33:35]$/;"	v
+df	plottsne.py	/^    df = fa.fromasciitodf(a,perplexity)$/;"	v
+f	plottsne.py	/^    f = plt.figure()$/;"	v
+gs	plottsne.py	/^    gs = gridspec.GridSpec(1,2)$/;"	v
+ax1	plottsne.py	/^    ax1 = f.add_subplot(gs[0,0])$/;"	v
+ax2	plottsne.py	/^    ax2 = f.add_subplot(gs[0,1])$/;"	v
+pd	fromasciitodf.py	/^import pandas as pd$/;"	i
+np	fromasciitodf.py	/^import numpy as np$/;"	i
+matplotlib	fromasciitodf.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	fromasciitodf.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	fromasciitodf.py	/^import seaborn as sns$/;"	i
+gridspec	fromasciitodf.py	/^from matplotlib import gridspec$/;"	i
+ast	fromasciitodf.py	/^import ast$/;"	i
+sys	fromasciitodf.py	/^import sys$/;"	i
+fromasciitodf	fromasciitodf.py	/^def fromasciitodf(inputfile,perplexity):$/;"	f
+pd	checkm_out.py	/^import pandas as pd$/;"	i
+np	checkm_out.py	/^import numpy as np$/;"	i
+matplotlib	checkm_out.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	checkm_out.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	checkm_out.py	/^import seaborn as sns$/;"	i
+gridspec	checkm_out.py	/^from matplotlib import gridspec$/;"	i
+ast	checkm_out.py	/^import ast$/;"	i
+sys	checkm_out.py	/^import sys$/;"	i
+read_checkm_tsv	checkm_out.py	/^def read_checkm_tsv(inputdir):$/;"	f
+make_checkm_output_df	checkm_out.py	/^def make_checkm_output_df(indir,filen):$/;"	f
+filedir	checkm_out.py	/^    filedir=sys.argv[1]$/;"	v
+filename	checkm_out.py	/^    filename = sys.argv[2]$/;"	v
+checkm_output	checkm_out.py	/^    checkm_output = make_checkm_output_df(filedir,filename);$/;"	v
+fib	fibo.py	/^def fib(n):    # write Fibonacci series up to n$/;"	f
+fib2	fibo.py	/^def fib2(n):   # return Fibonacci series up to n$/;"	f
+pd	prune_bins_gccov.py	/^import pandas as pd$/;"	i
+np	prune_bins_gccov.py	/^import numpy as np$/;"	i
+matplotlib	prune_bins_gccov.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	prune_bins_gccov.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	prune_bins_gccov.py	/^import seaborn as sns$/;"	i
+gridspec	prune_bins_gccov.py	/^from matplotlib import gridspec$/;"	i
+ast	prune_bins_gccov.py	/^import ast$/;"	i
+sys	prune_bins_gccov.py	/^import sys$/;"	i
+hdbscan	prune_bins_gccov.py	/^import hdbscan$/;"	i
+HTSeq	prune_bins_gccov.py	/^import HTSeq$/;"	i
+json	prune_bins_gccov.py	/^import json$/;"	i
+prune_bin	prune_bins_gccov.py	/^def prune_bin(maindf,fastadir,**kwargs):$/;"	f
+df	prune_bins_gccov.py	/^    df = pd.read_pickle(sys.argv[1])$/;"	v
+p	prune_bins_gccov.py	/^    p = sys.argv[2]$/;"	v
+fasta_dir	prune_bins_gccov.py	/^    fasta_dir = sys.argv[3]$/;"	v
+params	prune_bins_gccov.py	/^    params = ast.literal_eval(p)$/;"	v
+covmean	prune_bins_gccov.py	/^    covmean = params[0]$/;"	v
+covspread	prune_bins_gccov.py	/^    covspread = params[1]$/;"	v
+log	prune_bins_gccov.py	/^    log = params[2]$/;"	v
+binnum	prune_bins_gccov.py	/^    binnum = params[3]$/;"	v
+subnum	prune_bins_gccov.py	/^    subnum = params[4]$/;"	v
+pd	checkmdf_plot.py	/^import pandas as pd$/;"	i
+np	checkmdf_plot.py	/^import numpy as np$/;"	i
+matplotlib	checkmdf_plot.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	checkmdf_plot.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	checkmdf_plot.py	/^import seaborn as sns$/;"	i
+gridspec	checkmdf_plot.py	/^from matplotlib import gridspec$/;"	i
+ast	checkmdf_plot.py	/^import ast$/;"	i
+sys	checkmdf_plot.py	/^import sys$/;"	i
+path	checkmdf_plot.py	/^path = sys.argv[1]$/;"	v
+checkm_pickle	checkmdf_plot.py	/^checkm_pickle = sys.argv[2]$/;"	v
+checkm_output	checkmdf_plot.py	/^checkm_output = pd.read_pickle(path+checkm_pickle)$/;"	v
+maindf	checkmdf_plot.py	/^maindf = pd.read_pickle(sys.argv[3])$/;"	v
+contamination	checkmdf_plot.py	/^    contamination = str(np.round(checkm_output.loc[bins,'Contamination'],2))$/;"	v
+completeness	checkmdf_plot.py	/^    completeness = str(np.round(checkm_output.loc[bins,'Completeness'],2))$/;"	v
+heterogeneity	checkmdf_plot.py	/^    heterogeneity = str(np.round(checkm_output.loc[bins,'Strain heterogeneity'],2))$/;"	v
+length	checkmdf_plot.py	/^    length = str(checkm_output.loc[bins,'Genome size'])$/;"	v
+contigs	checkmdf_plot.py	/^    contigs = str(checkm_output.loc[bins,'# contigs'])$/;"	v
+N50	checkmdf_plot.py	/^    N50 = str(checkm_output.loc[bins,'N50 (contigs)'])$/;"	v
+expt_name	checkmdf_plot.py	/^    expt_name = bins[0:8]$/;"	v
+num	checkmdf_plot.py	/^    num = bins[-8:-5] #this depends on the fasta file names that go into checkm$/;"	v
+tempdf_sel_b	checkmdf_plot.py	/^    tempdf_sel_b = tempdf[tempdf.index.str.contains('Bulk')]$/;"	v
+tempdf_sel_m	checkmdf_plot.py	/^    tempdf_sel_m = tempdf[~tempdf.index.str.contains('Bulk')]$/;"	v
+f	checkmdf_plot.py	/^    f = plt.figure()$/;"	v
+gs	checkmdf_plot.py	/^    gs = gridspec.GridSpec(2,3)$/;"	v
+ax1	checkmdf_plot.py	/^    ax1 = f.add_subplot(gs[0,0])$/;"	v
+ax2	checkmdf_plot.py	/^    ax2 = f.add_subplot(gs[0,1])$/;"	v
+ax3	checkmdf_plot.py	/^    ax3 = f.add_subplot(gs[1,0])$/;"	v
+ax4	checkmdf_plot.py	/^    ax4 = f.add_subplot(gs[1,1])$/;"	v
+pd	subcluster_bins.py	/^import pandas as pd$/;"	i
+np	subcluster_bins.py	/^import numpy as np$/;"	i
+matplotlib	subcluster_bins.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	subcluster_bins.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	subcluster_bins.py	/^import seaborn as sns$/;"	i
+gridspec	subcluster_bins.py	/^from matplotlib import gridspec$/;"	i
+ast	subcluster_bins.py	/^import ast$/;"	i
+sys	subcluster_bins.py	/^import sys$/;"	i
+hdbscan	subcluster_bins.py	/^import hdbscan$/;"	i
+HTSeq	subcluster_bins.py	/^import HTSeq$/;"	i
+json	subcluster_bins.py	/^import json$/;"	i
+subcluster_bin	subcluster_bins.py	/^def subcluster_bin(maindf,fastadir,**kwargs):$/;"	f
+df	subcluster_bins.py	/^    df = pd.read_pickle(sys.argv[1])$/;"	v
+p	subcluster_bins.py	/^    p = sys.argv[2]$/;"	v
+fasta_dir	subcluster_bins.py	/^    fasta_dir = sys.argv[3]$/;"	v
+params	subcluster_bins.py	/^    params = ast.literal_eval(p)$/;"	v
+covmean	subcluster_bins.py	/^    covmean = params[0]$/;"	v
+covspread	subcluster_bins.py	/^    covspread = params[1]$/;"	v
+log	subcluster_bins.py	/^    log = params[2]$/;"	v
+binnum	subcluster_bins.py	/^    binnum = params[3]$/;"	v
+subnum	subcluster_bins.py	/^    subnum = params[4]$/;"	v
+pd	fasta_from_df.py	/^import pandas as pd$/;"	i
+np	fasta_from_df.py	/^import numpy as np$/;"	i
+matplotlib	fasta_from_df.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	fasta_from_df.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	fasta_from_df.py	/^import seaborn as sns$/;"	i
+gridspec	fasta_from_df.py	/^from matplotlib import gridspec$/;"	i
+ast	fasta_from_df.py	/^import ast$/;"	i
+sys	fasta_from_df.py	/^import sys$/;"	i
+hdbscan	fasta_from_df.py	/^import hdbscan$/;"	i
+time	fasta_from_df.py	/^import time$/;"	i
+HTSeq	fasta_from_df.py	/^import HTSeq$/;"	i
+make_fasta_from_df	fasta_from_df.py	/^def make_fasta_from_df(pathtofasta,fastaname,pathtodf,dfname):$/;"	f
+path2fasta	fasta_from_df.py	/^    path2fasta = sys.argv[1]$/;"	v
+fasta_name	fasta_from_df.py	/^    fasta_name = sys.argv[2]$/;"	v
+path2df	fasta_from_df.py	/^    path2df = sys.argv[3]$/;"	v
+df_name	fasta_from_df.py	/^    df_name = sys.argv[4]$/;"	v
+pd	filter_fasta_by_length.py	/^import pandas as pd$/;"	i
+np	filter_fasta_by_length.py	/^import numpy as np$/;"	i
+sys	filter_fasta_by_length.py	/^import sys$/;"	i
+HTSeq	filter_fasta_by_length.py	/^import HTSeq$/;"	i
+os	filter_fasta_by_length.py	/^import os$/;"	i
+listdir	filter_fasta_by_length.py	/^from os import listdir$/;"	i
+isfile	filter_fasta_by_length.py	/^from os.path import isfile, join$/;"	i
+join	filter_fasta_by_length.py	/^from os.path import isfile, join$/;"	i
+filter_fasta_length	filter_fasta_by_length.py	/^def filter_fasta_length(path,inputfile,threshold):$/;"	f
+filter_all_fasta	filter_fasta_by_length.py	/^def filter_all_fasta(path,threshold):$/;"	f
+path2fasta	filter_fasta_by_length.py	/^        path2fasta = sys.argv[1]$/;"	v
+fasta_name	filter_fasta_by_length.py	/^        fasta_name = sys.argv[2]$/;"	v
+threshold	filter_fasta_by_length.py	/^        threshold = sys.argv[3]$/;"	v
+path2fasta	filter_fasta_by_length.py	/^        path2fasta = sys.argv[1]$/;"	v
+threshold	filter_fasta_by_length.py	/^        threshold = sys.argv[2]$/;"	v
+np	rename_add_number.py	/^import numpy as np$/;"	i
+ast	rename_add_number.py	/^import ast$/;"	i
+sys	rename_add_number.py	/^import sys$/;"	i
+listdir	rename_add_number.py	/^from os import listdir$/;"	i
+isfile	rename_add_number.py	/^from os.path import isfile, join$/;"	i
+join	rename_add_number.py	/^from os.path import isfile, join$/;"	i
+copyfile	rename_add_number.py	/^from shutil import copyfile$/;"	i
+json	rename_add_number.py	/^import json$/;"	i
+path	rename_add_number.py	/^path = sys.argv[1] #folder containing files that need to be numbered$/;"	v
+num	rename_add_number.py	/^num = int(sys.argv[2]) #starting number in int format$/;"	v
+startnum	rename_add_number.py	/^startnum = num$/;"	v
+files	rename_add_number.py	/^files = [f for f in listdir(path) if isfile(join(path, f)) and '.fasta' in f]$/;"	v
+newfiles	rename_add_number.py	/^newfiles = []$/;"	v
+filepath	rename_add_number.py	/^    filepath = path+f$/;"	v
+newpath	rename_add_number.py	/^    newpath = path+'newfiles\/'+newname$/;"	v
+newfiles	rename_add_number.py	/^    newfiles = newfiles+[newname]$/;"	v
+filedict	rename_add_number.py	/^filedict = dict(zip(files,newfiles))$/;"	v
+pd	make_cluster_fasta.py	/^import pandas as pd$/;"	i
+np	make_cluster_fasta.py	/^import numpy as np$/;"	i
+matplotlib	make_cluster_fasta.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	make_cluster_fasta.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	make_cluster_fasta.py	/^import seaborn as sns$/;"	i
+gridspec	make_cluster_fasta.py	/^from matplotlib import gridspec$/;"	i
+ast	make_cluster_fasta.py	/^import ast$/;"	i
+sys	make_cluster_fasta.py	/^import sys$/;"	i
+hdbscan	make_cluster_fasta.py	/^import hdbscan$/;"	i
+time	make_cluster_fasta.py	/^import time$/;"	i
+HTSeq	make_cluster_fasta.py	/^import HTSeq$/;"	i
+make_cluster_fasta	make_cluster_fasta.py	/^def make_cluster_fasta(pathtofasta,fastaname,pathtodf,dfname):$/;"	f
+path2fasta	make_cluster_fasta.py	/^    path2fasta = sys.argv[1]$/;"	v
+fasta_name	make_cluster_fasta.py	/^    fasta_name = sys.argv[2]$/;"	v
+path2df	make_cluster_fasta.py	/^    path2df = sys.argv[3]$/;"	v
+df_name	make_cluster_fasta.py	/^    df_name = sys.argv[4]$/;"	v
+pd	make_5mers.py	/^import pandas as pd$/;"	i
+np	make_5mers.py	/^import numpy as np$/;"	i
+matplotlib	make_5mers.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	make_5mers.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	make_5mers.py	/^import seaborn as sns$/;"	i
+gridspec	make_5mers.py	/^from matplotlib import gridspec$/;"	i
+ast	make_5mers.py	/^import ast$/;"	i
+sys	make_5mers.py	/^import sys$/;"	i
+hdbscan	make_5mers.py	/^import hdbscan$/;"	i
+time	make_5mers.py	/^import time$/;"	i
+HTSeq	make_5mers.py	/^import HTSeq$/;"	i
+pymer	make_5mers.py	/^import pymer$/;"	i
+count_5mers	make_5mers.py	/^def count_5mers(inputfile):$/;"	f
+inputfile	make_5mers.py	/^    inputfile = sys.argv[1]$/;"	v
+pd	checkm_out_plot.py	/^import pandas as pd$/;"	i
+np	checkm_out_plot.py	/^import numpy as np$/;"	i
+matplotlib	checkm_out_plot.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	checkm_out_plot.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	checkm_out_plot.py	/^import seaborn as sns$/;"	i
+gridspec	checkm_out_plot.py	/^from matplotlib import gridspec$/;"	i
+ast	checkm_out_plot.py	/^import ast$/;"	i
+sys	checkm_out_plot.py	/^import sys$/;"	i
+co	checkm_out_plot.py	/^import checkm_out as co$/;"	i
+plot_checkm_clusters	checkm_out_plot.py	/^def plot_checkm_clusters(maindf,checkmdir,checkm_picklename):$/;"	f
+compare_two_checkmdfs	checkm_out_plot.py	/^def compare_two_checkmdfs(df1,df2,hue_name,savedir,savename):$/;"	f
+checkmdir	checkm_out_plot.py	/^    checkmdir=sys.argv[1] #dir of checkm data$/;"	v
+checkm_picklename	checkm_out_plot.py	/^    checkm_picklename = sys.argv[2] # name to save pickle to$/;"	v
+maindf	checkm_out_plot.py	/^    maindf = pd.read_pickle(sys.argv[3]) # corresponding df with bin names$/;"	v
+pd	umap_reducer.py	/^import pandas as pd$/;"	i
+np	umap_reducer.py	/^import numpy as np$/;"	i
+matplotlib	umap_reducer.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	umap_reducer.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	umap_reducer.py	/^import seaborn as sns$/;"	i
+gridspec	umap_reducer.py	/^from matplotlib import gridspec$/;"	i
+ast	umap_reducer.py	/^import ast$/;"	i
+sys	umap_reducer.py	/^import sys$/;"	i
+hdbscan	umap_reducer.py	/^import hdbscan$/;"	i
+time	umap_reducer.py	/^import time$/;"	i
+HTSeq	umap_reducer.py	/^import HTSeq$/;"	i
+umap	umap_reducer.py	/^import umap$/;"	i
+umap_reducer	umap_reducer.py	/^def umap_reducer(inputdir,inputfile,savename):$/;"	f
+inputdir	umap_reducer.py	/^    inputdir = sys.argv[1]$/;"	v
+inputfile	umap_reducer.py	/^    inputfile = sys.argv[2]$/;"	v
+savename	umap_reducer.py	/^    savename = sys.argv[3]$/;"	v
+pd	minimetagenome_analysis.py	/^import pandas as pd$/;"	i
+np	minimetagenome_analysis.py	/^import numpy as np$/;"	i
+matplotlib	minimetagenome_analysis.py	/^import matplotlib.pyplot as plt$/;"	i
+plt	minimetagenome_analysis.py	/^import matplotlib.pyplot as plt$/;"	i
+sns	minimetagenome_analysis.py	/^import seaborn as sns$/;"	i
+gridspec	minimetagenome_analysis.py	/^from matplotlib import gridspec$/;"	i
+ast	minimetagenome_analysis.py	/^import ast$/;"	i
+sys	minimetagenome_analysis.py	/^import sys$/;"	i
+hdbscan	minimetagenome_analysis.py	/^import hdbscan$/;"	i
+time	minimetagenome_analysis.py	/^import time$/;"	i
+scipy	minimetagenome_analysis.py	/^import scipy.io as sio$/;"	i
+sio	minimetagenome_analysis.py	/^import scipy.io as sio$/;"	i
+listdir	minimetagenome_analysis.py	/^from os import listdir$/;"	i
+isfile	minimetagenome_analysis.py	/^from os.path import isfile, join$/;"	i
+join	minimetagenome_analysis.py	/^from os.path import isfile, join$/;"	i
+os	minimetagenome_analysis.py	/^import os$/;"	i
+shuffle	minimetagenome_analysis.py	/^from random import shuffle$/;"	i
+json	minimetagenome_analysis.py	/^import json$/;"	i
+HTSeq	minimetagenome_analysis.py	/^import HTSeq$/;"	i
+Counter	minimetagenome_analysis.py	/^from collections import Counter$/;"	i
+fa	minimetagenome_analysis.py	/^import fromasciitodf as fa$/;"	i
+make_maindf	minimetagenome_analysis.py	/^def make_maindf(shorthand,mainpath):$/;"	f
+cluster_main_tsne	minimetagenome_analysis.py	/^def cluster_main_tsne(maindf,**kwargs):$/;"	f
+build_annotation_dfs	metabolic_reconstruction.py	/^def build_annotation_dfs(indir)$/;"	f
+make_genome_cluster_file	makeGenomeClusterFile.py	/^def make_genome_cluster_file(bins):$/;"	f

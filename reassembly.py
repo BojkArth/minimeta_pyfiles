@@ -17,6 +17,7 @@ from random import shuffle
 import json
 import HTSeq
 from collections import Counter
+from datetime import datetime
 
 def prune_bin_from_fasta(input_dir):
     # this is post-reassembly stuff
@@ -32,8 +33,11 @@ def prune_bin_from_fasta(input_dir):
 
 
 def make_contig_stats_df(path):
+    # collects everything except GC-content for each reassembled contig
+    #path = 'Permafrost/FranklinBluffs/bins/fasta/reassembly/'
+    #path contains all reassembly files (.txt +fasta)
+
     start_time = datetime.now()
-    path = 'Permafrost/FranklinBluffs/bins/fasta/reassembly/'
     files = [f for f in os.listdir(path) if 'shotgunReads_realignmentDepth' in f]
     totdf = None
     for file in files:
@@ -59,5 +63,17 @@ def make_contig_stats_df(path):
         else:
             totdf = totdf.append(statsdf)
 
+    expt_name = path.split('/')[1] #this works for Permafrost data, see top.
+    totdf['expt_name'] = expt_name
+    totdf['new_index'] = totdf['expt_name']+'_bin_'+totdf['Bin']+'_'+totdf.index
+    totdf.to_pickle(path+expt_name+'_reassembly_contig_stats.pickle')
+
     time_elapsed = datetime.now() - start_time
     print('Time elapsed (hh:mm:ss.ms) {}'.format(time_elapsed))
+    print(str(len(totdf[totdf['length']>=5e3]))+' contigs above 5kb for reassembled '+expt_name)
+
+    #need to add frac d1 frac d2 based on median and mean
+    # this will allow me to compare bin-associated depth fractions before and after reassembly
+    # use fractions obtained here with checkm info on N50 and length
+
+    return(totdf)

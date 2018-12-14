@@ -10,7 +10,11 @@ import sys
 import hdbscan
 import HTSeq
 import json
+"""
+Goal: perform unsupervised sub-clustering of a (re-assembled) genomic bin in GC-coverage space. Write the subcluster fastas if necessary.
+Created: Bojk Berghuis, 17 September 2018
 
+"""
 def subcluster_bin(maindf,fastadir,**kwargs):
     # set variables
     df = pd.read_pickle(maindf)
@@ -126,9 +130,6 @@ def subcluster_bin(maindf,fastadir,**kwargs):
     #return() #subbindf
 
 if __name__ == "__main__":
-
-
-
     df = pd.read_pickle(sys.argv[1])
     p = sys.argv[2]
     fasta_dir = sys.argv[3]

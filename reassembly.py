@@ -71,11 +71,11 @@ def make_contig_stats_df(path):
         statsdf['class_median'] = [d1 if statsdf.loc[f,d1+'_median']>statsdf.loc[f,d2+'_median'] else d2 if statsdf.loc[f,d1+'_median']<statsdf.loc[f,d2+'_median'] else 'equal' for f in statsdf.index]
         statsdf['class_count'] = [d1 if statsdf.loc[f,'absCov_'+d1]>statsdf.loc[f,'absCov_'+d2] else d2 if statsdf.loc[f,'absCov_'+d1]<statsdf.loc[f,'absCov_'+d2] else 'equal' for f in statsdf.index]
         # get GC-content from fasta
-        fasta_time = datetime.now()
-        print('Started accessing fasta of bin '+bin_num+' for GC-content')
+        #fasta_time = datetime.now()
+        #print('Started accessing fasta of bin '+bin_num+' for GC-content')
         statsdf = get_contig_GC(path,names[3],statsdf)
-        elapsed_fasta_time = datetime.now() - fasta_time
-        print('Added GC-content from fasta, time elapsed (hh:mm:ss.ms) {}'.format(elapsed_fasta_time))
+        #elapsed_fasta_time = datetime.now() - fasta_time
+        #print('Added GC-content from fasta, time elapsed (hh:mm:ss.ms) {}'.format(elapsed_fasta_time))
         # make final dataframe in first loop
         if totdf is None:
             totdf = statsdf.copy()

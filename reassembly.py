@@ -19,19 +19,16 @@ import HTSeq
 from collections import Counter
 from datetime import datetime
 
-def get_contig_GC(input_dir,temp_df):
+def get_contig_GC(dirname,fasta,temp_df):
     # this is a function called in 'make_contig_stats_df'
     # does not work if called separately
-    fasta_files = [f for f in os.listdir(input_dir) if 'fasta' in f] # reads the fasta file (make sure there is only one type of fasta file in this directory (contigs or scaffolds)
-    for fasta in fasta_files:
-        bin_num = fasta.split('.')[1]
-        input_file = input_dir+fasta
-        temp_df['GC'] = ''
-        for seq in HTSeq.FastaReader(input_file):
-            seqstring = seq.seq.decode('utf-8')
-            #a = Counter(seqstring)
-            #GC = (a['G']+a['C'])/len(seqstring) # this turned out to be slow (1.5 minutes for bins of .4Mb)
-            temp_df.loc[seq.name,'GC'] = (seqstring.count('G')+seqstring.count('C'))/len(seqstring) # this does not turn out to be much faster (1m 20s for the same bin)
+    bin_num = fasta.split('.')[1]
+    temp_df['GC'] = ''
+    for seq in HTSeq.FastaReader(dirname+fasta):
+        seqstring = seq.seq.decode('utf-8')
+        #a = Counter(seqstring)
+        #GC = (a['G']+a['C'])/len(seqstring) # this turned out to be slower than this:
+        temp_df.loc[seq.name,'GC'] = (seqstring.count('G')+seqstring.count('C'))/len(seqstring)
     return(temp_df)
 
 
@@ -44,10 +41,11 @@ def make_contig_stats_df(path):
     files = [f for f in os.listdir(path) if 'shotgunReads_realignmentDepth' in f]
     filesca = [f for f in os.listdir(path) if 'shotgunReads_absolute' in f]
     filescn = [f for f in os.listdir(path) if 'shotgunReads_normal' in f]
+    fasta_files = [f for f in os.listdir(path) if 'fasta' in f] # reads the fasta file (make sure there is only one type of fasta file in this directory (contigs or scaffolds)
     bins = [f.split('.')[1] for f in np.sort(files)]
     totdf = None
     for bin_num in bins:
-        names = [f for f in files+filesca+filescn if bin_num in f]
+        names = [f for f in files+filesca+filescn+fasta_files if '.'+bin_num+'.' in f]
         bin_df = pd.read_table(path+names[0])
         cols = bin_df.columns
         d1 = cols[-2].split('_')[1]
@@ -75,7 +73,7 @@ def make_contig_stats_df(path):
         # get GC-content from fasta
         fasta_time = datetime.now()
         print('Started accessing fasta of bin '+bin_num+' for GC-content')
-        statsdf = get_contig_GC(path,statsdf)
+        statsdf = get_contig_GC(path,names[3],statsdf)
         elapsed_fasta_time = datetime.now() - fasta_time
         print('Added GC-content from fasta, time elapsed (hh:mm:ss.ms) {}'.format(elapsed_fasta_time))
         # make final dataframe in first loop

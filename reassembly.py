@@ -1,34 +1,46 @@
 #!/usr/bin/env python
 
+#import matplotlib.pyplot as plt
+#import seaborn as sns
+#from matplotlib import gridspec
+#import ast
+#import sys
+#import hdbscan
+#import time
+#import scipy.io as sio
+#from os import listdir
+#from os.path import isfile, join
+#from random import shuffle
+#import json
+#from collections import Counter
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from matplotlib import gridspec
-import ast
-import sys
-import hdbscan
-import time
-import scipy.io as sio
-from os import listdir
-from os.path import isfile, join
 import os
-from random import shuffle
-import json
 import HTSeq
-from collections import Counter
 from datetime import datetime
+
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 def get_contig_GC(dirname,fasta,temp_df):
     # this is a function called in 'make_contig_stats_df'
     # does not work if called separately
-    bin_num = fasta.split('.')[1]
-    temp_df['GC'] = ''
+    #bin_num = fasta.split('.')[1]
+    temp_df['GC'] = '';temp_df['length_from_fasta']=''
     for seq in HTSeq.FastaReader(dirname+fasta):
         seqstring = seq.seq.decode('utf-8')
         #a = Counter(seqstring)
         #GC = (a['G']+a['C'])/len(seqstring) # this turned out to be slower than this:
-        temp_df.loc[seq.name,'GC'] = (seqstring.count('G')+seqstring.count('C'))/len(seqstring)
+        GC = (seqstring.count('G')+seqstring.count('C'))/len(seqstring)
+        temp_df.loc[seq.name,'GC'] = GC
+        temp_df.loc[seq.name,'length_from_fasta'] = len(seqstring)
+        number = is_number(GC)
+        if number==True:
+            print('GC of contig '+seq.name+'is '+str(GC)+', while length='+str(len(seqstring)))
     return(temp_df)
 
 
@@ -44,7 +56,7 @@ def make_contig_stats_df(path):
     fasta_files = [f for f in os.listdir(path) if 'fasta' in f] # reads the fasta file (make sure there is only one type of fasta file in this directory (contigs or scaffolds)
     bins = [f.split('.')[1] for f in np.sort(files)]
     totdf = None
-    for bin_num in bins:
+    for bin_num in bins[2:4]:
         names = [f for f in files+filesca+filescn+fasta_files if '.'+bin_num+'.' in f]
         bin_df = pd.read_table(path+names[0])
         cols = bin_df.columns
@@ -52,9 +64,10 @@ def make_contig_stats_df(path):
         d2 = cols[-1].split('_')[1]
         columns = ['Bin','length',d1+'_mean',d1+'_std',d2+'_mean',d2+'_std',d1+'_median',d2+'_median','absCov_'+d1,'absCov_'+d2,'norCov_'+d1,'norCov_'+d2]
         statsdf = pd.DataFrame(index=bin_df.ContigName.unique(),columns=columns)
-        print(bin_num)
+        #print(bin_num)
         statsdf['Bin'] = bin_num
         statsdf['length'] = bin_df.groupby('ContigName').max()['Position']
+        statsdf['length_linecount'] = bin_df.groupby('ContigName').count()['Position']
         statsdf[d1+'_mean'] = bin_df.groupby('ContigName').mean()[cols[-2]]
         statsdf[d2+'_mean'] = bin_df.groupby('ContigName').mean()[cols[-1]]
         statsdf[d1+'_std'] = bin_df.groupby('ContigName').std()[cols[-2]]

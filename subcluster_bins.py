@@ -31,10 +31,10 @@ def subcluster_bin(maindf,fastadir,**kwargs):
     expt_name = kwargs['expt_name']
     fastaname = expt_name+'_bin_'+binnum+'_'+miniorbulk+'.fasta'
     filename = expt_name+'_bin_'+binnum+'sub_bin_'+subnum+'_'+miniorbulk
-    if miniorbulk=='mini':
+    """if miniorbulk=='mini':
         color = 'g'
     elif miniorbulk=='bulk':
-        color = 'b'
+        color = 'b'"""
 
     df_in = df[df['Bin']==binnum]
     df_out = df[df['Bin']!=binnum]

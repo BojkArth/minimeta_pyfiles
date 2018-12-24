@@ -111,7 +111,7 @@ def get_contig_GC2(dirname,fasta,temp_df):
     # this is a function called in 'make_contig_stats_df'
     # does not work if called separately
     bin_num = fasta.split('.')[1]
-    temp_df['GC'] = '';temp_df['length_from_fasta']=''
+    temp_df['GC'] = -1;temp_df['length_from_fasta']=-1
     for seq in HTSeq.FastaReader(dirname+fasta):
         seqstring = seq.seq.decode('utf-8')
         #a = Counter(seqstring)
@@ -185,6 +185,10 @@ def make_CS_df_new_index(path):
         #fasta_time = datetime.now()
         #print('Started accessing fasta of bin '+bin_num+' for GC-content')
         statsdf = get_contig_GC2(path,names[3],statsdf)
+        statsdf['length_diff(abs)'] = statsdf['length_from_fasta']-statsdf['length_linecount']
+        statsdf['length_diff(%)'] = statsdf['length_diff(abs)']/statsdf['length_from_fasta']*100 #% that 'length_from_fasta' is longer or shorter 
+        statsdf['length_diff(%)'] = [statsdf.loc[f,'length_diff(%)'] if statsdf.loc[f,'length_from_fasta']!=-1 else 'no fasta' for f in statsdf.index]
+
         #elapsed_fasta_time = datetime.now() - fasta_time
         #print('Added GC-content from fasta, time elapsed (hh:mm:ss.ms) {}'.format(elapsed_fasta_time))
         # make final dataframe in first loop

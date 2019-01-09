@@ -261,6 +261,45 @@ def subclustering(df_in,xcol,ycol,**kwargs):
 
 def plot_subclusters():
 
+    f = plt.figure()
+    gs = gridspec.GridSpec(2,3)
+    ax1 = f.add_subplot(gs[0,0]) #GC-coverage lin
+    xcol = 'GC Content';
+    df_in.plot.scatter(xcol,'FPK',s=size.divide(1e2),alpha=.3,ax=ax1,c=colors)
+    plt.suptitle(expt_name+'_perp60_bin_'+binnum+'sub_bin_'+subnum+'_'+miniorbulk+'_HDBscan')
+    if log!='yes':
+        for txt in meanpos.index:
+            ax1.annotate(str(txt), (meanpos.loc[txt,xcol],meanpos.loc[txt,ycol]))
+    plt.xlim(.2,.8)
+    plt.ylabel('Coverage (FPK)');plt.xlabel('GC content')
+
+    ax2 = f.add_subplot(gs[0,1]) #full tSNE
+    df_out.plot.scatter('x_60_a','y_60_a',alpha=.2,c=[.5,.5,.5],ax=ax2)
+    df_in.plot.scatter('x_60_a','y_60_a',s=size.divide(3e2),alpha=.2,ax=ax2,c=colors)
+
+    # print subcluster stats (#contigs, length)
+    plt.text(50,-40,stats)
+
+    ax3 = f.add_subplot(gs[1,0]) #GC-coverage log
+    df_in.plot.scatter(xcol,'FPK_log',s=size.divide(1e2),alpha=.3,ax=ax3,c=colors)
+    plt.ylabel('Coverage (log FPK)');plt.xlabel('GC content')
+    if log=='yes':
+        for txt in meanpos.index:
+            print(txt)
+            ax3.annotate(str(txt), (meanpos.loc[txt,xcol],meanpos.loc[txt,ycol]))
+
+    ax4 = f.add_subplot(gs[1,1]) # tSNE, cluster region only
+    df_in.plot.scatter('x_60_a','y_60_a',s=size.divide(1e2),alpha=.3,ax=ax4,c=colors)
+
+
+    f.set_figheight(10)
+    f.set_figwidth(15)
+    f.savefig(fastadir+'subfasta/plots/'+filename+'_hdbclustering.png')
+
+    plt.close(f)
+
+
+
 if __name__ == "__main__":
     df = pd.read_pickle(sys.argv[1])
     p = sys.argv[2]

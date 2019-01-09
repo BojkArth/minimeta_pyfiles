@@ -130,6 +130,13 @@ def subcluster_bin(maindf,fastadir,**kwargs):
     #return() #subbindf
 
 def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
+    """
+    subcluster for an entire set of reassembled bins
+    one or two depths (WD vs FB & SM)
+    plotting, writing fasta optional
+    subclustering done on the mean coverage of every depth available (so datasets with 2 depths will produce redundant subclusters, I can later select which one
+    or refine the process (e.g. by subclustering at the depth which has the highest median of the mean coverage (this measure to prevent outliers from determining the choice))
+    """
     # set variables
     df = pd.read_pickle(maindf)
     #miniorbulk = maindf[-4:]
@@ -139,47 +146,35 @@ def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
     minS = kwargs['min_samples']
     CSM = kwargs['cluster_selection_method']
     ASC = kwargs['allow_single_cluster']
-    binnum = kwargs['bin_number']
-    #subnum = kwargs['subbin_num']
-    log = kwargs['log']
+    #log = kwargs['log']
     expt_name = kwargs['expt_name']
-    fastaname = expt_name+'_bin_'+binnum+'_.fasta'
-    filename = expt_name+'_bin_'+binnum+'sub_bin_'+subnum
-    """if miniorbulk=='mini':
-        color = 'g'
-    elif miniorbulk=='bulk':
-        color = 'b'"""
-
-    df_in = df[df['Bin']==binnum]
-    df_out = df[df['Bin']!=binnum]
-    xcol = 'GC'
-    #if log=='yes': ycol = 'FPK_log'
-    #else:ycol = 'FPK'
-
-    temp = df_in[[xcol,ycol]]
-    size = df_in['Sequence Length']
-
-    labels = hdbscan.HDBSCAN(min_cluster_size=minCS,min_samples=minS,cluster_selection_method=CSM,allow_single_cluster=ASC).fit_predict(temp)
-
-    palette = sns.color_palette('deep', np.unique(labels).max() + 1)
-    colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in labels]
-    df_in['subclusternum'] = labels[0:len(df)] #add cluster numbers to main df
-    meanpos = df_in.groupby('subclusternum').mean()[[xcol,ycol]] #mean position in GC-coverage space
-    #stats = df_in[df_in['subclusternum']!=-1].groupby('subclusternum').sum()[['Sequence Length','Read Depth']] # sequence length and # contigs for
-    stats = df_in.groupby('subclusternum').sum()[['Sequence Length','Read Depth']] # sequence length and # contigs for
-    stats.rename(index=str,columns={'Read Depth':'# contigs'},inplace=True)
     params = pd.DataFrame.from_dict(kwargs,orient='index')#
     params.rename(index=str,columns={0:'parameter values'},inplace=True)
-    """
-    df_in_nonsel = df_in[~df_in.index.isin(df_in_sel.index)]
-    siz = int(df_in_sel['Sequence Length'].sum())
-    contig = int(len(df_in_sel))"""
+
+    for binnum in df['Bin'].unique():
+
+        fastaname = fastadir+'genome_contigs_withBulk.'+binnum+'.5000bp_filter.fasta'
+        filename = fastadir+'pruning/fastas/'+expt_name+'_bin_'+binnum+'sub_bin_'+subnum+'.fasta'
+
+        df_in = df[df['Bin']==binnum]
+
+        xcol = 'GC'
+        ycollist = list(df.columns[df.columns.str.contains('cm_mean')])
+        if len(ycollist)==2: # perform subclustering for both depths
+            ycol1 = ycollist[0]
+            ycol2 = ycollist[1]
+            df_in,meanpos1,stats1,colors1 = subclustering(df_in,xcol,ycol1,**kwargs)
+            df_in,meanpos2,stats2,colors2 = subclustering(df_in,xcol,ycol2,**kwargs)
+        elif len(ycollist)==1:
+            ycol = ycollist[0]
+            df_in,meanpos,stats,colors = subclustering(df_in,xcol,ycol,**kwargs)
+
+        size = df_in['Sequence Length']
+
 
     # plot # (with selection constraints as text on fig)
     f = plt.figure()
     gs = gridspec.GridSpec(2,3)
-
-
     ax1 = f.add_subplot(gs[0,0]) #GC-coverage lin
     xcol = 'GC Content';
     df_in.plot.scatter(xcol,'FPK',s=size.divide(1e2),alpha=.3,ax=ax1,c=colors)
@@ -194,6 +189,7 @@ def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
     ax2 = f.add_subplot(gs[0,1]) #full tSNE
     df_out.plot.scatter('x_60_a','y_60_a',alpha=.2,c=[.5,.5,.5],ax=ax2)
     df_in.plot.scatter('x_60_a','y_60_a',s=size.divide(3e2),alpha=.2,ax=ax2,c=colors)
+
 
     # print subcluster stats (#contigs, length)
     plt.text(50,-40,stats)
@@ -224,16 +220,17 @@ def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
     f.savefig(fastadir+'subfasta/plots/'+filename+'_hdbclustering.png')
     plt.close(f)
 
-    # write fasta
-    input_file = fastadir+fastaname
-    for subbins in df_in[df_in['subclusternum']!=-1]['subclusternum'].unique():
-        temp = df_in[df_in['subclusternum']==subbins]
-        output_file = fastadir+'subfasta/'+filename+'_subbin_'+str(subbins)+'.fasta'
-        with open(output_file, 'w') as out_file:
-            for s in HTSeq.FastaReader( input_file ):
-                if temp.index.str.contains(s.name).any():
-                    s.write_to_fasta_file(out_file)
-            out_file.close()
+    # write fasta, if requested
+    if writefasta == 'YES':
+        input_file = fastadir+fastaname
+        for subbins in df_in[df_in['subclusternum']!=-1]['subclusternum'].unique():
+            temp = df_in[df_in['subclusternum']==subbins]
+            output_file = fastadir+'subfasta/'+filename+'_subbin_'+str(subbins)+'.fasta'
+            with open(output_file, 'w') as out_file:
+                for s in HTSeq.FastaReader( input_file ):
+                    if temp.index.str.contains(s.name).any():
+                        s.write_to_fasta_file(out_file)
+                out_file.close()
 
     # write kwargs (for further reference or reproducibility)
     with open(fastadir+'subfasta/json/'+filename+'_hdbclustering.txt', 'w') as file:
@@ -243,7 +240,26 @@ def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
 
     #return() #subbindf
 
+def subclustering(df_in,xcol,ycol,**kwargs):
+    minCS = kwargs['min_cluster_size']
+    minS = kwargs['min_samples']
+    CSM = kwargs['cluster_selection_method']
+    ASC = kwargs['allow_single_cluster']
 
+    temp = df_in[[xcol,ycol]]
+    labels = hdbscan.HDBSCAN(min_cluster_size=minCS,min_samples=minS,cluster_selection_method=CSM,allow_single_cluster=ASC).fit_predict(temp)
+    palette = sns.color_palette('deep', np.unique(labels).max() + 1)
+    colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in labels]
+
+    subclunum = 'subclusternum'+ycol[:-5]
+    df_in[sumclunum] = ["{0:0=3d}".format(f) if f>=0 else f for f in labels] #add cluster numbers to main df
+    meanpos = df_in.groupby(subclunum).mean()[[xcol,ycol]] #mean position in GC-coverage space
+    stats = df_in.groupby(subclunum).sum()['Sequence Length'] # sequence length
+    stats2 = df_in.groupby(subclunum).count()['Sequence Length'] # contigs for
+    stats = stats.join(stats2)
+    return(df_in,meanpos,stats,colors)
+
+def plot_subclusters():
 
 if __name__ == "__main__":
     df = pd.read_pickle(sys.argv[1])

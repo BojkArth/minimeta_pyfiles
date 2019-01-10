@@ -129,9 +129,21 @@ def subcluster_bin(maindf,fastadir,**kwargs):
 
     #return() #subbindf
 
+
+
 def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
     """
-    subcluster for an entire set of reassembled bins
+    ***MAIN PRUNING FUNCTION***
+    STRUCTURE WITH SUBFUNCTIONS/DEPENDENCIES:
+
+    subcluster_bin_post_reassembly()
+    	pruning_bins()
+    	    subclustering()
+    	    	hdbscan.HDBSCAN()
+    	    plot_subclusters_twodepths()
+    	    write_subfasta() [optional]
+
+    subcluster for an entire set of reassembled bins OR only a selected bin
     one or two depths (WD vs FB & SM)
     plotting, writing fasta optional
     subclustering done on the mean coverage of every depth available (so datasets with 2 depths will produce redundant subclusters, I can later select which one
@@ -140,50 +152,57 @@ def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
     df = pd.read_pickle(maindf)
     df = df[df['length_linecount']>=5e3]
     #df = df[df['length_from_fasta']>=5e3]
-
     """ **hdbkwds:'min_cluster_size','min_samples','cluster_selection_method':'leaf','alpha':1.0, allow_single_cluster=False (default)} # default cluster_selection_method = 'eom' (excess of mass) """
-    minCS = kwargs['min_cluster_size']
+    """minCS = kwargs['min_cluster_size']
     minS = kwargs['min_samples']
     CSM = kwargs['cluster_selection_method']
-    ASC = kwargs['allow_single_cluster']
-
+    ASC = kwargs['allow_single_cluster']"""
     expt_name = kwargs['expt_name']
-    writefasta = kwargs['write_fasta']
     params = pd.DataFrame.from_dict(kwargs,orient='index')
     params.rename(index=str,columns={0:'parameter values'},inplace=True)
 
-    for binnum in df['Bin'].unique():
-        #print(binnum)
-        fastaname = fastadir+'genome_contigs_withBulk.'+binnum+'.5000bp_filter.fasta'
-        df_in = df[df['Bin']==binnum]
+    if 'Bin' in kwargs: #apply pruning to a single bin (for bin-specific pruning)
+        binnum = kwargs['Bin']
+        if 'GCmin' in kwargs:
+            df = df[(df.GC>=kwargs['GCmin']) & (df.GC<=kwargs['GCmax'])] # additional constraints if wanted
+        pruning_bins(df, binnum,fastadir,**kwargs)
+        # write kwargs (for further reference or reproducibility)
+        with open(fastadir+'pruning/json/'+expt_name+'_bin_'+binnum+'_pruneparams_hdb.txt', 'w') as file:
+            file.write(json.dumps(kwargs))
+    else:
+        for binnum in df['Bin'].unique():
+            pruning_bins(df, binnum,fastadir,**kwargs)
+        # write kwargs (for further reference or reproducibility)
+        with open(fastadir+'pruning/json/'+expt_name+'parameters_hdbclustering.txt', 'w') as file:
+            file.write(json.dumps(kwargs))
 
-        xcol = 'GC'
-        ycollist = list(df.columns[df.columns.str.contains('cm_mean')])
-        if len(ycollist)==2: # perform subclustering for both depths
-            ycol1 = ycollist[0]
-            ycol2 = ycollist[1]
-            df_in,meanpos1,stats1,colors1 = subclustering(df_in,xcol,ycol1,**kwargs)
-            df_in,meanpos2,stats2,colors2 = subclustering(df_in,xcol,ycol2,**kwargs)
-            plot_subclusters_twodepths(df_in,ycol1,ycol2,colors1,colors2,meanpos1,meanpos2,fastadir+'pruning/')
-            # write fasta, if requested
-            if writefasta == 'YES':
-                subclucol = meanpos1.index.name
-                write_subfasta(fastaname,df_in,fastadir+'pruning/fastas/',subclucol)
-                subclucol = meanpos2.index.name
-                write_subfasta(fastaname,df_in,fastadir+'pruning/fastas/',subclucol)
-            stats1.to_csv(fastadir+'pruning/json/stats_bin_'+binnum+'_'+ycol1+'.txt','\t')
-            stats2.to_csv(fastadir+'pruning/json/stats_bin_'+binnum+'_'+ycol2+'.txt','\t')
-        elif len(ycollist)==1:
-            ycol = ycollist[0]
-            df_in,meanpos,stats,colors = subclustering(df_in,xcol,ycol,**kwargs)
-            if writefasta == 'YES':
-                subclucol = meanpos.index.name
-                write_subfasta(fastaname,df_in,fastadir+'pruning/fastas/',subclucol)
-            stats.to_csv(fastadir+'pruning/json/stats_bin_'+binnum+'_'+ycol+'.txt','\t')
-
-    # write kwargs (for further reference or reproducibility)
-    with open(fastadir+'pruning/json/'+expt_name+'parameters_hdbclustering.txt', 'w') as file:
-        file.write(json.dumps(kwargs))
+def pruning_bins(df,binnum,fastadir,**kwargs):
+    fastaname = fastadir+'genome_contigs_withBulk.'+binnum+'.5000bp_filter.fasta'
+    writefasta = kwargs['write_fasta']
+    df_in = df[df['Bin']==binnum]
+    xcol = 'GC'
+    ycollist = list(df.columns[df.columns.str.contains('cm_mean')])
+    if len(ycollist)==2: # perform subclustering for both depths
+        ycol1 = ycollist[0]
+        ycol2 = ycollist[1]
+        df_in,meanpos1,stats1,colors1 = subclustering(df_in,xcol,ycol1,**kwargs)
+        df_in,meanpos2,stats2,colors2 = subclustering(df_in,xcol,ycol2,**kwargs)
+        plot_subclusters_twodepths(df_in,ycol1,ycol2,colors1,colors2,meanpos1,meanpos2,fastadir+'pruning/')
+        # write fasta, if requested
+        if writefasta == 'YES':
+            subclucol = meanpos1.index.name
+            write_subfasta(fastaname,df_in,fastadir+'pruning/fastas/',subclucol)
+            subclucol = meanpos2.index.name
+            write_subfasta(fastaname,df_in,fastadir+'pruning/fastas/',subclucol)
+        stats1.to_csv(fastadir+'pruning/json/stats_bin_'+binnum+'_'+ycol1+'.txt','\t')
+        stats2.to_csv(fastadir+'pruning/json/stats_bin_'+binnum+'_'+ycol2+'.txt','\t')
+    elif len(ycollist)==1:
+        ycol = ycollist[0]
+        df_in,meanpos,stats,colors = subclustering(df_in,xcol,ycol,**kwargs)
+        if writefasta == 'YES':
+            subclucol = meanpos.index.name
+            write_subfasta(fastaname,df_in,fastadir+'pruning/fastas/',subclucol)
+        stats.to_csv(fastadir+'pruning/json/stats_bin_'+binnum+'_'+ycol+'.txt','\t')
 
 def write_subfasta(fastapath,df,savedir,subclucol):
     binnum = df.Bin.unique()[0]

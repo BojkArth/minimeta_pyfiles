@@ -180,7 +180,11 @@ def pruning_bins(df,binnum,fastadir,**kwargs):
     fastaname = fastadir+'genome_contigs_withBulk.'+binnum+'.5000bp_filter.fasta'
     writefasta = kwargs['write_fasta']
     df_in = df[df['Bin']==binnum]
-    xcol = 'GC'
+    if kwargs['GC_sensitive']=='YES': # added sensitivity to GC-space
+        df_in['GC_sensitive'] = df_in['GC'].multiply(100)
+        xcol = 'GC_sensitive'
+    else:
+        xcol = 'GC'
     ycollist = list(df.columns[df.columns.str.contains('cm_mean')])
     if len(ycollist)==2: # perform subclustering for both depths
         ycol1 = ycollist[0]
@@ -227,7 +231,7 @@ def subclustering(df_in,xcol,ycol,**kwargs):
     labels = hdbscan.HDBSCAN(min_cluster_size=minCS,min_samples=minS,cluster_selection_method=CSM,allow_single_cluster=ASC).fit_predict(temp)
     palette = sns.color_palette('deep', np.unique(labels).max() + 1)
     colors = [palette[x] if x >= 0 else (0.0, 0.0, 0.0) for x in labels]
-
+    xcol = 'GC' #for plotting in original GC space
     subclunum = 'subclusternum'+ycol[:-5]
     df_in[subclunum] = ["{0:0=3d}".format(f) if f>=0 else f for f in labels] #add cluster numbers to main df
     meanpos = df_in.groupby(subclunum).mean()[[xcol,ycol]] #mean position in GC-coverage space

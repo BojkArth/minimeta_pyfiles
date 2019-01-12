@@ -10,6 +10,7 @@ import sys
 import hdbscan
 import HTSeq
 import json
+import os
 """
 Goal: perform unsupervised sub-clustering of a (re-assembled) genomic bin in GC-coverage space. Write the subcluster fastas if necessary.
 Created: Bojk Berghuis, 17 September 2018
@@ -166,23 +167,28 @@ def subcluster_bin_post_reassembly(maindf,fastadir,**kwargs):
         if 'GCmin' in kwargs:
             df = df[(df.GC>=kwargs['GCmin']) & (df.GC<=kwargs['GCmax'])] # additional constraints if wanted
         pruning_bins(df, binnum,fastadir,**kwargs)
-        # write kwargs (for further reference or reproducibility)
-        with open(fastadir+'pruning/json/'+expt_name+'_bin_'+binnum+'_pruneparams_hdb.txt', 'w') as file:
-            file.write(json.dumps(kwargs))
+        # write kwargs (for further reference or reproducibility) only when not loading from json (to not overwrite)
+        if 'load_from_json' not in kwargs:
+            with open(fastadir+'pruning/json/'+expt_name+'_bin_'+binnum+'_pruneparams_hdb.txt', 'w') as file:
+                file.write(json.dumps(kwargs))
     else:
         for binnum in df['Bin'].unique():
             pruning_bins(df, binnum,fastadir,**kwargs)
-        # write kwargs (for further reference or reproducibility)
-        with open(fastadir+'pruning/json/'+expt_name+'parameters_hdbclustering.txt', 'w') as file:
-            file.write(json.dumps(kwargs))
+        # write kwargs (for further reference or reproducibility) only when not loading from json (to not overwrite)
+        if 'load_from_json' not in kwargs:
+            with open(fastadir+'pruning/json/'+expt_name+'parameters_hdbclustering.txt', 'w') as file:
+                file.write(json.dumps(kwargs))
 
 def pruning_bins(df,binnum,fastadir,**kwargs):
     fastaname = fastadir+'genome_contigs_withBulk.'+binnum+'.5000bp_filter.fasta'
     writefasta = kwargs['write_fasta']
     df_in = df[df['Bin']==binnum]
-    if kwargs['GC_sensitive']=='YES': # added sensitivity to GC-space
-        df_in['GC_sensitive'] = df_in['GC'].multiply(100)
-        xcol = 'GC_sensitive'
+    if 'GC_sensitive' in kwargs:
+        if kwargs['GC_sensitive']=='YES': # added sensitivity to GC-space
+            df_in['GC_sensitive'] = df_in['GC'].multiply(100)
+            xcol = 'GC_sensitive'
+        else:
+            xcol = 'GC'
     else:
         xcol = 'GC'
     ycollist = list(df.columns[df.columns.str.contains('cm_mean')])
@@ -318,6 +324,13 @@ def plot_subclusters_twodepths(df,ycol1,ycol2,colors1,colors2,meanpos1,meanpos2,
     f.savefig(savedir+expt_name+'_subclustering_bin_'+binnum+'.png')
     plt.close(f)
 
+def write_subfasta_from_jsonparams(maindf,jsondir,fastadir):
+    files  = [f for f in os.listdir(jsondir) if 'pruneparams' in f]
+    for binn in files:
+        with open(jsondir+binn) as f:
+            params = json.load(f)
+            params['load_from_json'] = True
+        subcluster_bin_post_reassembly(maindf,fastadir,**params)
 
 
 if __name__ == "__main__":

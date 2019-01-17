@@ -79,6 +79,7 @@ def compare_two_checkmdfs(df1,df2,hue_name,savedir,savename):
     f = plt.figure()
     sns.violinplot(x='variable',y='value_int', hue=hue_name, data=dfviolin,split=True,inner='quartile')#,bw=.15)
     plt.xlabel('');plt.ylabel('%')
+    plt.legend(loc='upper left')
     f.set_figheight(7)
     f.set_figwidth(7)
     f.savefig(savedir+savename+'.png')

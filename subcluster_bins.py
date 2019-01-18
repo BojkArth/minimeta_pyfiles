@@ -330,6 +330,7 @@ def write_subfasta_from_jsonparams(maindf,jsondir,fastadir):
         with open(jsondir+binn) as f:
             params = json.load(f)
             params['load_from_json'] = True
+            params['write_fasta'] = 'YES'
         subcluster_bin_post_reassembly(maindf,fastadir,**params)
 
 

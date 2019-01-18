@@ -10,8 +10,10 @@ import sys
 
 
 def fromasciitodf(inputfile,perplexity):
+    perplexity = str(perplexity)
     dat = []
-    for i in inputfile:
+    data = list(pd.read_table(inputfile,header=None)[0])
+    for i in data:
         dt = i.split()
         daaat = [float(dt[0]),float(dt[1])]
         dat.append(daaat)

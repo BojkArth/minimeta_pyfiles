@@ -148,56 +148,88 @@ def make_CS_df_new_index(path):
     bins_skipped = []
     for bin_num in bins:
         names = [f for f in files+filesca+filescn+fasta_files if '.'+bin_num+'.' in f]
-        bin_df = pd.read_table(path+names[0])
+        bin_df = pd.read_csv(path+names[0],'\t')
         cols = bin_df.columns
         
         bin_df['idxName'] = [bin_num+'_NODE_'+"{0:0=3d}".format(int(f.split('_')[1])) for f in bin_df.ContigName]
         node_num = ["{0:0=3d}".format(int(f.split('_')[1])) for f in bin_df.ContigName.unique()] # extract num and make 3-digit string
         idx = [bin_num+'_NODE_'+f for f in node_num]
-        d1 = cols[-2].split('_')[1]
-        d2 = cols[-1].split('_')[1]
-        columns = ['Bin','length',d1+'_mean',d1+'_std',d2+'_mean',d2+'_std',d1+'_median',d2+'_median','absCov_'+d1,'absCov_'+d2,'norCov_'+d1,'norCov_'+d2]
-        statsdf = pd.DataFrame(index=idx,columns=columns)
+        if len(cols)==3: #this implies there's only one depth (i.e. WestDock)
+            d1 = '30cm' #'WestDock5_Bulk'
+            columns = ['Bin','length',d1+'_mean',d1+'_std',d1+'_median','absCov_'+d1,'norCov_'+d1]
+            statsdf = pd.DataFrame(index=idx,columns=columns)
+        elif len(cols)==4: # when there are two depths
+            d1 = cols[-2].split('_')[1]
+            d2 = cols[-1].split('_')[1]
+            columns = ['Bin','length',d1+'_mean',d1+'_std',d2+'_mean',d2+'_std',d1+'_median',d2+'_median','absCov_'+d1,'absCov_'+d2,'norCov_'+d1,'norCov_'+d2]
+            statsdf = pd.DataFrame(index=idx,columns=columns)
         #print(bin_num)
         
         statsdf['Bin'] = bin_num
         statsdf['length'] = bin_df.groupby('idxName').max()['Position']
         statsdf['length_linecount'] = bin_df.groupby('idxName').count()['Position']
         data_in_bin = 'YES'
+
+
         try:
-            statsdf[d1+'_mean'] = bin_df.groupby('idxName').mean()[cols[-2]]
+            if len(cols)==4:
+                statsdf[d2+'_mean'] = bin_df.groupby('idxName').mean()[cols[-1]]
+            else:
+                statsdf[d1+'_mean'] = bin_df.groupby('idxName').mean()[cols[-1]]
         except DataError:
             print('No numeric data for bin '+bin_num+', heading on to next.')
             data_in_bin = 'NO'
             bins_skipped.append(bin_num)
 
         if data_in_bin=='YES':
-            statsdf[d2+'_mean'] = bin_df.groupby('idxName').mean()[cols[-1]]
-            statsdf[d1+'_std'] = bin_df.groupby('idxName').std()[cols[-2]]
-            statsdf[d2+'_std'] = bin_df.groupby('idxName').std()[cols[-1]]
-            statsdf[d1+'_median'] = bin_df.groupby('idxName').median()[cols[-2]]
-            statsdf[d2+'_median'] = bin_df.groupby('idxName').median()[cols[-1]]
-            # incorporate additional info here (absolute/normalized alignment file)
-            dfa = pd.read_table(path+names[1])
-            dfn = pd.read_table(path+names[2])
-            dfa['idx'] = [bin_num+'_NODE_'+"{0:0=3d}".format(int(f.split('_')[1])) for f in dfa['Unnamed: 0']]
-            dfa.set_index('idx',inplace=True)
-            dfn.index = dfa.index
-            statsdf['absCov_'+d1] = dfa[cols[-2]]
-            statsdf['absCov_'+d2] = dfa[cols[-1]]
-            statsdf['norCov_'+d1] = dfn[cols[-2]]
-            statsdf['norCov_'+d2] = dfn[cols[-1]]
-            #classify based on highest mean, median, or readcount (I do this here instead of out of the loop, since there is the chance of redundancy in the index for totdf)
-            statsdf['class_mean'] = [d1 if statsdf.loc[f,d1+'_mean']>statsdf.loc[f,d2+'_mean'] else d2 if statsdf.loc[f,d1+'_mean']<statsdf.loc[f,d2+'_mean'] else 'equal' for f in statsdf.index]
-            statsdf['class_median'] = [d1 if statsdf.loc[f,d1+'_median']>statsdf.loc[f,d2+'_median'] else d2 if statsdf.loc[f,d1+'_median']<statsdf.loc[f,d2+'_median'] else 'equal' for f in statsdf.index]
-            statsdf['class_count'] = [d1 if statsdf.loc[f,'absCov_'+d1]>statsdf.loc[f,'absCov_'+d2] else d2 if statsdf.loc[f,'absCov_'+d1]<statsdf.loc[f,'absCov_'+d2] else 'equal' for f in statsdf.index]
-            # get GC-content from fasta
-            #fasta_time = datetime.now()
-            # print('Started accessing fasta of bin '+bin_num+' for GC-content')
-            statsdf = get_contig_GC2(path,names[3],statsdf)
-            statsdf['length_diff(abs)'] = statsdf['length_from_fasta']-statsdf['length_linecount']
-            statsdf['length_diff(%)'] = statsdf['length_diff(abs)']/statsdf['length_from_fasta']*100 #% that 'length_from_fasta' is longer or shorter
-            statsdf['length_diff(%)'] = [statsdf.loc[f,'length_diff(%)'] if statsdf.loc[f,'length_from_fasta']!=-1 else 'no fasta' for f in statsdf.index]
+            if len(cols)==4:
+                statsdf[d1+'_mean'] = bin_df.groupby('idxName').mean()[cols[-2]]
+                statsdf[d1+'_std'] = bin_df.groupby('idxName').std()[cols[-2]]
+                statsdf[d2+'_std'] = bin_df.groupby('idxName').std()[cols[-1]]
+                statsdf[d1+'_median'] = bin_df.groupby('idxName').median()[cols[-2]]
+                statsdf[d2+'_median'] = bin_df.groupby('idxName').median()[cols[-1]]
+                # incorporate additional info here (absolute/normalized alignment file)
+                dfa = pd.read_csv(path+names[1],'\t')
+                dfn = pd.read_csv(path+names[2],'\t')
+                dfa['idx'] = [bin_num+'_NODE_'+"{0:0=3d}".format(int(f.split('_')[1])) for f in dfa['Unnamed: 0']]
+                dfa.set_index('idx',inplace=True)
+                dfn.index = dfa.index
+                statsdf['absCov_'+d1] = dfa[cols[-2]]
+                statsdf['absCov_'+d2] = dfa[cols[-1]]
+                statsdf['norCov_'+d1] = dfn[cols[-2]]
+                statsdf['norCov_'+d2] = dfn[cols[-1]]
+                #classify based on highest mean, median, or readcount (I do this here instead of out of the loop, since there is the chance of redundancy in the index for totdf)
+                statsdf['class_mean'] = [d1 if statsdf.loc[f,d1+'_mean']>statsdf.loc[f,d2+'_mean'] else d2 if statsdf.loc[f,d1+'_mean']<statsdf.loc[f,d2+'_mean'] else 'equal' for f in statsdf.index]
+                statsdf['class_median'] = [d1 if statsdf.loc[f,d1+'_median']>statsdf.loc[f,d2+'_median'] else d2 if statsdf.loc[f,d1+'_median']<statsdf.loc[f,d2+'_median'] else 'equal' for f in statsdf.index]
+                statsdf['class_count'] = [d1 if statsdf.loc[f,'absCov_'+d1]>statsdf.loc[f,'absCov_'+d2] else d2 if statsdf.loc[f,'absCov_'+d1]<statsdf.loc[f,'absCov_'+d2] else 'equal' for f in statsdf.index]
+                # get GC-content from fasta
+                #fasta_time = datetime.now()
+                # print('Started accessing fasta of bin '+bin_num+' for GC-content')
+                statsdf = get_contig_GC2(path,names[3],statsdf)
+                statsdf['length_diff(abs)'] = statsdf['length_from_fasta']-statsdf['length_linecount']
+                statsdf['length_diff(%)'] = statsdf['length_diff(abs)']/statsdf['length_from_fasta']*100 #% that 'length_from_fasta' is longer or shorter
+                statsdf['length_diff(%)'] = [statsdf.loc[f,'length_diff(%)'] if statsdf.loc[f,'length_from_fasta']!=-1 else 'no fasta' for f in statsdf.index]
+            else:
+                statsdf[d1+'_mean'] = bin_df.groupby('idxName').mean()[cols[-1]]
+                statsdf[d1+'_std'] = bin_df.groupby('idxName').std()[cols[-1]]
+                statsdf[d1+'_median'] = bin_df.groupby('idxName').median()[cols[-1]]
+                # incorporate additional info here (absolute/normalized alignment file)
+                dfa = pd.read_csv(path+names[1],'\t')
+                dfn = pd.read_csv(path+names[2],'\t')
+                dfa['idx'] = [bin_num+'_NODE_'+"{0:0=3d}".format(int(f.split('_')[1])) for f in dfa['Unnamed: 0']]
+                dfa.set_index('idx',inplace=True)
+                dfn.index = dfa.index
+                statsdf['absCov_'+d1] = dfa[cols[-1]]
+                statsdf['norCov_'+d1] = dfn[cols[-1]]
+                #classify based on highest mean, median, or readcount (I do this here instead of out of the loop, since there is the chance of redundancy in the index for totdf)
+                 #### NO CLASSIFICATION NEEDED, ONE DEPTH ONLY ####
+                # get GC-content from fasta
+                #fasta_time = datetime.now()
+                # print('Started accessing fasta of bin '+bin_num+' for GC-content')
+                statsdf = get_contig_GC2(path,names[3],statsdf)
+                statsdf['length_diff(abs)'] = statsdf['length_from_fasta']-statsdf['length_linecount']
+                statsdf['length_diff(%)'] = statsdf['length_diff(abs)']/statsdf['length_from_fasta']*100 #% that 'length_from_fasta' is longer or shorter
+                statsdf['length_diff(%)'] = [statsdf.loc[f,'length_diff(%)'] if statsdf.loc[f,'length_from_fasta']!=-1 else 'no fasta' for f in statsdf.index]
 
         #elapsed_fasta_time = datetime.now() - fasta_time
         #print('Added GC-content from fasta, time elapsed (hh:mm:ss.ms) {}'.format(elapsed_fasta_time))
@@ -210,7 +242,8 @@ def make_CS_df_new_index(path):
     expt_name = path.split('/')[1] #this works for Permafrost data, see top.
     totdf['expt_name'] = expt_name
     totdf['new_index'] = totdf['expt_name']+'_bin_'+totdf['Bin']+'_'+totdf.index
-    totdf['depthfrac'+d1] = totdf['absCov_'+d1].divide(totdf['absCov_'+d1]+totdf['absCov_'+d2])
+    if len(cols)==4:
+        totdf['depthfrac'+d1] = totdf['absCov_'+d1].divide(totdf['absCov_'+d1]+totdf['absCov_'+d2])
     # this will allow me to compare bin-associated depth fractions before and after reassembly
     # use fractions obtained here with checkm info on N50 and length
     totdf.to_pickle(path+expt_name+'_reassembly_contig_stats.pickle')

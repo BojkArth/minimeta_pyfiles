@@ -64,7 +64,8 @@ def retrieveKEGGmodules(df,typedata,main_dir):
 
         # retrieve data from KEGG database
         url = 'http://www.genome.jp/kegg-bin/find_module_object'
-        params = urlencode({'unclassified': dat, 'mode': mode}).encode()
+        params = urlencode({'
+        unclassified': dat, 'mode': mode}).encode()
         html = urlopen(url, params).read()
 
 

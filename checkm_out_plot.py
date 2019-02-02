@@ -79,12 +79,34 @@ def compare_two_checkmdfs(df1,df2,hue_name,savedir,savename):
     f = plt.figure()
     sns.violinplot(x='variable',y='value_int', hue=hue_name, data=dfviolin,split=True,inner='quartile')#,bw=.15)
     plt.xlabel('');plt.ylabel('%')
+    plt.ylim(top=120,bottom=-20)
     plt.legend(loc='upper left')
     f.set_figheight(7)
     f.set_figwidth(7)
     f.savefig(savedir+savename+'.png')
     f.savefig(savedir+savename+'.pdf')
 
+def compare_two_checkmdfs_sina(df1,df2,hue_name,savedir,savename):
+    import sinaplot as sin
+    #takes two checkm dfs and compares the 3 quality scores
+    #outputs a violin
+    dfcompare = df1.append(df2)
+    dfviolin = pd.melt(dfcompare,value_vars=['Completeness','Contamination','Strain heterogeneity']
+    			,id_vars=hue_name)
+    dfviolin['value_int'] = dfviolin['value'].astype(int)
+
+    f = plt.figure()
+    sin.sinaplot(x='variable',y='value_int', hue=hue_name, data=dfviolin,split=True,inner='quartile',violin=True,violin_facealpha=0.250)#,bw=.15)
+    plt.xlabel('');plt.ylabel('%')
+    plt.xticks(fontsize=13)
+    plt.ylim(top=120,bottom=-20)
+    #plt.legend(loc='lower right')
+    plt.legend(loc='lower center', ncol=2)
+    plt.title('N = '+str(len(df1)))
+    f.set_figheight(7)
+    f.set_figwidth(7)
+    f.savefig(savedir+savename+'.png')
+    f.savefig(savedir+savename+'.pdf')
 
 if __name__=='__main__':
     checkmdir=sys.argv[1] #dir of checkm data

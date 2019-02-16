@@ -149,3 +149,15 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     contigdf.to_pickle(savedir+'contigdf_from_metagenome_fasta_'+str(kmernum)+'mer.pickle')
     kmerdf.to_pickle(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer.pickle')
     return(contigdf,kmerdf)
+
+def distance_calc(p1,p2):
+    x1 = p1[0];y1 = p1[1]
+    x2 = p2[0];y2 = p2[1]
+    dist = np.sqrt((x2-x1)**2+(y2-y1)**2)
+    return dist
+
+def distance_matrix_from_tsne(tSNE_df):
+    dist_matrix = pd.DataFrame(index=tSNE_df.index,columns=tSNE_df.index)
+    for contig in dist_matrix.columns:
+        dist_matrix[contig] = distance_calc(tSNE_df.loc[contig],tSNE_df)
+    return dist_matrix

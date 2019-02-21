@@ -143,7 +143,7 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
         GC = (seqstring.count('G')+seqstring.count('C'))/len(seqstring)
         contigdf.loc[s.name] = {'Sequence length':length,'GC':GC,'description':s.descr}
         for kmer in kmers:
-            kmerdf.loc[s.name,kmer] = len(re.findall('(?='+kmer+')',newcontig))
+            kmerdf.loc[s.name,kmer] = len(re.findall('(?='+kmer+')',seqstring))
     entire_end = time.time()
     print('Constructing '+str(kmernum)+'-mer table from '+fastapath.split('/')[-1]+' took {:.2f} s'.format(entire_end - entire_start))
     contigdf.to_pickle(savedir+'contigdf_from_metagenome_fasta_'+str(kmernum)+'mer.pickle')

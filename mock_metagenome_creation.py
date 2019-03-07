@@ -8,7 +8,7 @@ import numpy as np
 import HTSeq
 import os
 import re
-import khmer
+#import khmer
 import imageio
 import glob
 import hdbscan
@@ -175,7 +175,7 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
         #counts.consume(seqstring)
         for kmer in kmers:
             #kmerdf.loc[seq.name,kmer] = sum(newcontig[i:].startswith(kmer) for i in range(len(newcontig)))
-            kmerdf.loc[seq.name,kmer] = len(re.findall('(?='+kmer+')',newcontig))
+            kmerdf.loc[s.name,kmer] = len(re.findall('(?='+kmer+')',seqstring))
             #kmerdf.loc[s.name,kmer] = counts.get(kmer)
     entire_end = time.time()
     print('Constructing '+str(kmernum)+'-mer table from '+fastapath.split('/')[-1]+' took {:.2f} s'.format(entire_end - entire_start))
@@ -254,7 +254,7 @@ def make_QCdf_from_tsnedf(tsnedf,maindir,savename):
         QC_df.loc[binn,'num_contigs'] = len(distdf)
     QC_df['dist_from_origin_mean'] = [f[0] for f in euclidean_distances(QC_df[['mean_x','mean_y']],[[0,0]])] # distance from origin for mean(x,y)
     QC_df['dist_from_origin_median'] = [f[0] for f in euclidean_distances(QC_df[['median_x','median_y']],[[0,0]])] # distance from origin for median(x,y)
-    maxdist = np.max(euclidean_distances(tsnedf[[0,1]],tsnedf[[0,1]]))
+    #maxdist = np.max(euclidean_distances(tsnedf[[0,1]],tsnedf[[0,1]]))
     maxdist_fromorigin = QC_df['dist_from_origin_median'].max()
 
     QC_df['mean_dist'] = QC_df['total_distance'].divide(QC_df['num_contigs']**2/2) #mean distance of all contigs belonging to a genome
@@ -419,10 +419,10 @@ def cluster_main_tsne(maindf,maindir,**kwargs):
 
 
     stats = stats.join(maindf.groupby('DBclusternum').sum()['Sequence length']) # sequence length
-    stats.rename(index=str,columns={'Sequence length':'total length'},inplace=True)
-    stats = stats.join(maindf.groupby('DBclusternum').count()['Sequence length']) # contigs
-    stats.rename(index=str,columns={'Sequence length':'# contigs'},inplace=True)
-    params = pd.DataFrame.from_dict(kwargs,orient='index')#
+    stats.rename(index=int,columns={'Sequence length':'total length'},inplace=True)
+    stats = stats.join(maindf.groupby('DBclusternum').count()['Bin']) # 
+    stats.rename(index=int,columns={'Bin':'# contigs'},inplace=True)
+    params = pd.DataFrame.from_dict(kwargs,orient='index')
     params.rename(index=str,columns={0:'parameter values'},inplace=True)
 
     # plot # (with selection constraints as text on fig)
@@ -432,9 +432,12 @@ def cluster_main_tsne(maindf,maindir,**kwargs):
         ax.annotate(str(cluster), (stats.loc[cluster,xcol],stats.loc[cluster,ycol]))
 
     plt.xlabel('tSNE 1');plt.ylabel('tSNE 2')
-    f.savefig(maindir+expt_name+'hdbscan.png')
+    f.savefig(maindir+'plots/'+expt_name+'hdbscan.png')
 
     return(maindf,stats)
 
-
+# make function that computes hdb clustering quality (e.g. confusion matrix, correlation of cluster with GT-genome, etc.)
+# make another function that adds coverage to a set of given contigs (with known GT)
+def hdb_clustering_QC(tsnedf_withBins,statsdf):
+    return 0
 

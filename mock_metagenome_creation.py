@@ -209,11 +209,11 @@ def distance_matrix_from_tsne(tSNE_df):
 
 def perform_PCA(kmerdf,num_PCs):
     x = StandardScaler().fit_transform(kmerdf_norm)
-    pca = PCA(n_components=100)
+    pca = PCA(n_components=500)
     principalComp = pca.fit_transform(x)
     princdf = pd.DataFrame(principalComp)
     princdf.index =tsne.index
-    return(PCdf)
+    return(princdf)
 
 def make_tsne_from_df(df,contig_df,stats_df,maindir,savename):
     # compute tsne

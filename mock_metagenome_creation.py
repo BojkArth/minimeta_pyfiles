@@ -164,6 +164,8 @@ def fragment_genomes_make_kmertable(maindir,contiglengths,kmernum,savename):
         meta_out.close()
     return(statsdf,contigdf,kmerdf)
 
+
+
 def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     entire_start = time.time()
     kmers = [''.join(i) for i in itertools.product('ACTG',repeat=kmernum)] #dim = 1024 5mers, 256 4mers, 4096 6mers
@@ -186,7 +188,14 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     kmerdf.to_pickle(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer.pickle')
     return(contigdf,kmerdf)
 
-def distance_calc(p1,p2):
+
+"""
+The functions above create the metagenome samples and kmer frequency tables.
+Below is everything else. What you need is kmer, contig and genome stats dataframe
+
+"""
+
+"""def distance_calc(p1,p2):
     x1 = p1[0];y1 = p1[1]
     x2 = p2[0];y2 = p2[1]
     dist = np.sqrt((x2-x1)**2+(y2-y1)**2)
@@ -196,7 +205,15 @@ def distance_matrix_from_tsne(tSNE_df):
     dist_matrix = pd.DataFrame(index=tSNE_df.index,columns=tSNE_df.index)
     for contig in dist_matrix.columns:
         dist_matrix[contig] = distance_calc(tSNE_df.loc[contig],tSNE_df)
-    return dist_matrix
+    return dist_matrix"""
+
+def perform_PCA(kmerdf,num_PCs):
+    x = StandardScaler().fit_transform(kmerdf_norm)
+    pca = PCA(n_components=100)
+    principalComp = pca.fit_transform(x)
+    princdf = pd.DataFrame(principalComp)
+    princdf.index =tsne.index
+    return(PCdf)
 
 def make_tsne_from_df(df,contig_df,stats_df,maindir,savename):
     # compute tsne
@@ -529,4 +546,5 @@ def minCS_sweep(tsne,maindir,subfolder,savename):
         tsne,stats,QC_leaf = cluster_main_tsne(tsne,maindir,**kwargs)
         leafdf.loc[mcs] = QC_leaf
     clusterQualdf = eomdf.join(leafdf)
+    clusterQualdf = clusterQualdf.astype(float)
     return(clusterQualdf)

@@ -19,6 +19,9 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import euclidean_distances
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 """
 Created 2019-02-14	Bojk Berghuis
 
@@ -432,12 +435,98 @@ def cluster_main_tsne(maindf,maindir,**kwargs):
         ax.annotate(str(cluster), (stats.loc[cluster,xcol],stats.loc[cluster,ycol]))
 
     plt.xlabel('tSNE 1');plt.ylabel('tSNE 2')
-    f.savefig(maindir+'plots/'+expt_name+'hdbscan.png')
+    if '/' in expt_name:
+    	plt.title(expt_name.split('/')[1].split('_')[1]+', min cluster size = '+str(minCS)+', cluster method = '+CSM)
+    else:
+        plt.title(expt_name+', min cluster size = '+str(minCS)+', cluster method = '+CSM)
 
-    return(maindf,stats)
+    f.savefig(maindir+'plots/'+expt_name+'hdbscan.png')
+    plt.close(f)
+
+    h,c,v = cluster_quality(maindf,maindir,expt_name)
+    Qmeas = [h,c,v]
+    return(maindf,stats,Qmeas)
 
 # make function that computes hdb clustering quality (e.g. confusion matrix, correlation of cluster with GT-genome, etc.)
 # make another function that adds coverage to a set of given contigs (with known GT)
 def hdb_clustering_QC(tsnedf_withBins,statsdf):
     return 0
 
+
+def cluster_quality(tsne,maindir,savename):
+    matrix = pd.DataFrame(index=tsne.Bin.unique(),columns=tsne.genome.unique())
+    for genome in matrix.columns:
+        matrix[genome] = tsne[tsne.genome==genome].groupby('Bin').count()[0]
+    matrix.drop('-01',inplace=True)
+    genome_centric = matrix.divide(matrix.sum())
+    cluster_centric = matrix.T.divide(matrix.sum(axis=1))
+
+    homogen = homogeneity(matrix)
+    complet = completeness(matrix)
+    v_measure = 2*homogen*complet/(homogen+complet)
+
+    f,ax = plt.subplots(1,2,figsize=(10,5))
+    cluster_centric.max().sort_values().plot(style='-o',ax=ax[0])
+    ax[0].set_xticks([])
+    ax[0].set_xlabel('Clusters')
+    ax[0].set_ylabel('Largest single-genome fraction')
+
+    genome_centric.max().sort_values().plot(style='-o',ax=ax[1])
+    ax[1].set_xticks([])
+    ax[1].set_xlabel('Genomes')
+    ax[1].set_ylabel('Largest single-cluster fraction')
+    f.savefig(maindir+'plots/'+savename+'_cluster_qual.png')
+    plt.close(f)
+
+    return(homogen,complet,v_measure)
+
+def homogeneity(matrix):
+    n = matrix.sum().sum()
+    ncn = matrix.T.sum(axis=1).divide(n)
+    HC = -np.sum(ncn*np.log(ncn))
+    nk = matrix.T.sum()
+    HCK = 0
+    for genome in matrix.columns:
+        nc = -np.sum(matrix[genome].divide(n)*np.log(matrix[genome].divide(nk)))
+        HCK = HCK+nc
+    homogeneity=1-HCK/HC
+    return homogeneity
+
+def completeness(matrix):
+    n = matrix.sum().sum()
+    nkn= matrix.sum(axis=1).divide(n)
+    HK = -np.sum(nkn*np.log(nkn))
+    nc = matrix.sum()
+    HKC = 0
+    for cluster in matrix.index:
+        nk = -np.sum(matrix.T[cluster].divide(n)*np.log(matrix.T[cluster].divide(nc)))
+        HKC = HKC+nk
+    completeness = 1-HKC/HK
+    return completeness
+
+def minCS_sweep(tsne,maindir,subfolder,savename):
+    if not os.path.isdir(maindir+'plots/'+subfolder):
+        os.mkdir(maindir+'plots/'+subfolder)
+    min_GTgenome_contigs = tsne.groupby('genome').count()[0].min()
+    sweep_pct = np.linspace(.1,2,20) # sweep minimum cluster size from 10-200% of #contigs of smallest GT-genome
+    minCS_sw = [int(round(f*min_GTgenome_contigs)) for f in sweep_pct]
+    leafdf = pd.DataFrame(index=minCS_sw,columns=['hom_leaf','com_leaf','val_leaf'])
+    eomdf = pd.DataFrame(index=minCS_sw,columns=['hom_eom','com_eom','val_eom'])
+    eom = [];leaf=[]
+    for mcs in minCS_sw:
+        #perc_int = int(perc*1e2)
+        exptna = subfolder+'/'+savename+'_eom_minCS_'+str(mcs)
+        keys = ['min_cluster_size','min_samples','cluster_selection_method','allow_single_cluster',
+           'expt_name']
+        values = [mcs,1,'eom',True,exptna]
+        kwargs = dict(zip(keys,values))
+        tsne,stats,QC_eom = cluster_main_tsne(tsne,maindir,**kwargs)
+        eomdf.loc[mcs] = QC_eom
+
+        exptna = subfolder+'/'+savename+'_leaf_minCS_'+str(mcs)
+        kwargs['cluster_selection_method'] = 'leaf'
+        kwargs['expt_name'] = exptna
+        tsne,stats,QC_leaf = cluster_main_tsne(tsne,maindir,**kwargs)
+        leafdf.loc[mcs] = QC_leaf
+    clusterQualdf = eomdf.join(leafdf)
+    return(clusterQualdf)

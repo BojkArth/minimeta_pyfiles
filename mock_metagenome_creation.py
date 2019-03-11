@@ -168,10 +168,19 @@ def fragment_genomes_make_kmertable(maindir,contiglengths,kmernum,savename):
 
 def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     entire_start = time.time()
+    # count total number of sequences in fasta:
+    bashCommand = "grep '>' "+fastapath+" | wc -l"
+    command = os.popen(bashCommand)
+    out = command.read()
+    numseq = out.strip()
+    
     kmers = [''.join(i) for i in itertools.product('ACTG',repeat=kmernum)] #dim = 1024 5mers, 256 4mers, 4096 6mers
     kmerdf = pd.DataFrame(columns=kmers)
     contigdf = pd.DataFrame(columns=['Sequence length', 'GC','description'])
     #counts = khmer.Counttable(kmernum,1e7,kmernum+10)
+    fastacount = 0
+    batchcount = 0
+    start = time.time()
     for s in HTSeq.FastaReader(fastapath):
         seqstring = s.seq.decode('utf-8')
         length = len(seqstring)
@@ -182,13 +191,34 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
             #kmerdf.loc[seq.name,kmer] = sum(newcontig[i:].startswith(kmer) for i in range(len(newcontig)))
             kmerdf.loc[s.name,kmer] = len(re.findall('(?='+kmer+')',seqstring))
             #kmerdf.loc[s.name,kmer] = counts.get(kmer)
+        fastacount+=1
+        end = time.time()
+        if fastacount==500 or fastacount-batchcount==500:
+            batchcount = batchcount+500
+            hour = time.localtime()[3]
+            minute = time.localtime()[4]
+            print('----------------------------------------------------')
+            print('Collecting kmers for '+str(fastacount)+' contigs out of '+numseq+' done, took {:.2f} s'.format(end-start))
+            print('Progress: '+str(np.round(fastacount/int(numseq)*1e2,2))+' %, local time: '+str(hour)+':'+str(minute))
+            print('Total elapsed time is {:.2f} minutes'.format((end-entire_start)/60))
+            print('----------------------------------------------------')
+            start = time.time()
+        
     entire_end = time.time()
-    print('Constructing '+str(kmernum)+'-mer table from '+fastapath.split('/')[-1]+' took {:.2f} s'.format(entire_end - entire_start))
+    hour = time.localtime()[3]
+    minute = time.localtime()[4]
+    print('Constructing '+str(kmernum)+'-mer table from '+fastapath.split('/')[-1]+' took {:.2f} hours'.format((entire_end - entire_start)/3600))
+    print('Finished at local time: '+str(hour)+':'+str(minute))
     contigdf.to_pickle(savedir+'contigdf_from_metagenome_fasta_'+str(kmernum)+'mer.pickle')
     kmerdf.to_pickle(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer.pickle')
     return(contigdf,kmerdf)
 
-
+def make_coverage(contigdf,statsdf):
+    # compute coverage by getting mean genome coverage from lognormal distribution
+    # assign exact coverage to each contig by pulling from normal distribution centered around mean genome cov
+    
+    return contigdf,statsdf
+ 
 """
 The functions above create the metagenome samples and kmer frequency tables.
 Below is everything else. What you need is kmer, contig and genome stats dataframe
@@ -206,13 +236,100 @@ def distance_matrix_from_tsne(tSNE_df):
     for contig in dist_matrix.columns:
         dist_matrix[contig] = distance_calc(tSNE_df.loc[contig],tSNE_df)
     return dist_matrix"""
+    
+def perform_complete_analysis(kmerdf,contigdf,statsdf,maindir,savename):
+    global num_kmers
+    num_kmers = len(kmerdf.T)
+    kmer_length = int(np.log(num_kmers)/np.log(4))
+    start_time = time.time()
+    
+    savename = savename+'_'+str(kmer_length)+'mers'
 
-def perform_PCA(kmerdf,num_PCs):
-    x = StandardScaler().fit_transform(kmerdf_norm)
-    pca = PCA(n_components=500)
+    maindir = maindir
+    global complete_analysis
+    complete_analysis = 'YES'
+    global firstround
+    firstround = 'YES'
+    if kmer_length==5:
+        pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[3:-1]]
+    elif kmer_length==6:
+        pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[8:]]
+    else:
+        print('define range of PCs first!')
+        return 0
+    
+    optimaldf = pd.DataFrame(index=pcs_to_reduce+[num_kmers],columns=['idxmax','max'])
+    
+    kmerdf_norm = kmerdf.divide(contigdf['Sequence length'],axis=0)
+    print('building tSNE of all '+str(kmer_length)+'-mers')
+    tsnedf_main = make_tsne_from_df(kmerdf_norm,contigdf,statsdf,maindir,savename)
+    end = time.time()
+    print('finished building main tSNE, this took {:.2f} seconds'.format(end - start_time))
+    print('performing cluster sweep of tSNE of all '+str(kmer_length)+'-mers')
+    start = time.time()
+    hdbsweep = minCS_sweep(tsnedf_main,maindir,savename,savename)
+    end = time.time()
+    print('finished cluster sweep of main tSNE, this took {:.2f} seconds'.format(end - start))
+    print('Total elapsed time is {:.2f} minutes'.format((end-start_time)/60))
+    keys = [0,1];values = ['x_'+str(kmer_length)+'mers','y_'+str(kmer_length)+'mers']
+    newnames = dict(zip(keys,values))
+    tsnedf_main.rename(index=str,columns=newnames,inplace=True)
+    
+    optimaldf.loc[num_kmers,'max'] = hdbsweep['val_leaf'].max()
+    optimaldf.loc[num_kmers,'idxmax'] = hdbsweep['val_leaf'].idxmax()
+    
+    keys = hdbsweep.columns;values = [f+str(kmer_length)+'mers' for f in keys]
+    lut = dict(zip(keys,values))
+    hdbsweep.rename(index=int,columns=lut,inplace=True)
+     
+    firstround=='NO'
+    
+    pcdf = perform_PCA(kmerdf_norm)
+    
+    for numpcs in pcs_to_reduce:
+        print('building tSNE of '+str(numpcs)+' PCs')
+        start = time.time()
+        tsnedf_temp = make_tsne_from_df(pcdf.iloc[:,:numpcs+1],contigdf,statsdf,maindir,savename)
+        end = time.time()
+        print('finished building tSNE of '+str(numpcs)+' PCs, this took {:.2f} seconds'.format(end - start))
+        
+        
+        savetemp = savename.split('_')[0]+'_'+str(numpcs)+'PCs'
+        print('performing cluster sweep of tSNE of '+str(numpcs)+' PCs')
+        start = time.time()
+        hdb_temp = minCS_sweep(tsnedf_temp,maindir,savetemp,savetemp)
+        end = time.time()
+        print('finished cluster sweep of tSNE with'+str(numpcs)+'PCs, this took {:.2f} seconds'.format(end - start))
+        print('Total elapsed time is {:.2f} minutes'.format((end-start_time)/60))
+
+        keys = [0,1];values = ['x_PC'+str(numpcs),'y_PC'+str(numpcs)]
+        newnames = dict(zip(keys,values))
+        tsnedf_main = tsnedf_main.join(tsnedf_temp[[0,1]])
+        tsnedf_main.rename(index=str,columns=newnames,inplace=True)
+        
+        optimaldf.loc[numpcs,'max'] = hdb_temp['val_leaf'].max()
+        optimaldf.loc[numpcs,'idxmax'] = hdb_temp['val_leaf'].idxmax()
+        
+        keys = hdb_temp.columns;values = [f+'_PC'+str(numpcs) for f in keys]
+        lut = dict(zip(keys,values))
+        hdb_temp.rename(index=int,columns=lut,inplace=True)
+        hdbsweep = hdbsweep.join(hdb_temp)
+            
+    end = time.time()
+    print('Finished everything.')
+    print('Total elapsed time is {:.2f} minutes'.format((end-start_time)/60))
+    tsnedf_main.to_pickle(maindir+savename.split('_')[0]+'_all_tSNEs')
+    optimaldf.to_pickle(maindir+savename.split('_')[0]+'_optimalValues_perPC')
+    hdbsweep.to_pickle(maindir+savename.split('_')[0]+'_allPCs_clustersweep_Quality')
+    return tsnedf_main,optimaldf,hdbsweep
+
+
+def perform_PCA(kmer_df):
+    x = StandardScaler().fit_transform(kmer_df)
+    pca = PCA(n_components=num_kmers)
     principalComp = pca.fit_transform(x)
     princdf = pd.DataFrame(principalComp)
-    princdf.index =tsne.index
+    princdf.index =kmer_df.index
     return(princdf)
 
 def make_tsne_from_df(df,contig_df,stats_df,maindir,savename):
@@ -222,13 +339,19 @@ def make_tsne_from_df(df,contig_df,stats_df,maindir,savename):
     tsnedf = pd.DataFrame(x_emb,index=df.index)
     tsnedf = tsnedf.join(contig_df['Sequence length'])
     tsnedf = tsnedf.join(contig_df['GC'])
-    tsnedf['genome'] = [f.split('_')[0] for f in tsnedf.index]
-    tsnedf.to_pickle(maindir+'tsnedf_'+savename+'.pickle')
+    if firstround=='YES' and complete_analysis=='YES':
+        tsnedf['genome'] = [f.split('_')[0] for f in tsnedf.index]
+        tsnedf.to_pickle(maindir+'tsnedf_'+savename+'.pickle')
+    if complete_analysis!='YES':
+        # calculate cluster quality
+        QCdf = make_QCdf_from_tsnedf(tsnedf)
+        # plot some metrics
+        plot_tsnedf_metrics(tsnedf,stats_df,QCdf)
+        return tsnedf, QCdf
+    else:
+        return tsnedf
 
-    # calculate cluster quality
-    QCdf = make_QCdf_from_tsnedf(tsnedf,maindir,savename)
-
-    # plot some metrics
+def plot_tsnedf_metrics(tsnedf,stats_df,QCdf,maindir,savename):
     f,ax = plt.subplots(1,1,figsize=(10,10))
     plt.scatter(tsnedf[0],tsnedf[1],s=tsnedf['Sequence length'].astype(float)/100,
                 alpha=.05,c=tsnedf['GC'],cmap='RdBu_r')
@@ -252,7 +375,6 @@ def make_tsne_from_df(df,contig_df,stats_df,maindir,savename):
     plt.ylabel('Mean contig distance (fraction of max contig distance)')
     f.savefig(maindir+'plots/genome_clusterQuality_'+savename+'_kmerVar.png')
     plt.close(f)
-    return tsnedf, QCdf
 
 
 def make_QCdf_from_tsnedf(tsnedf,maindir,savename):
@@ -444,7 +566,8 @@ def cluster_main_tsne(maindf,maindir,**kwargs):
     stats.rename(index=int,columns={'Bin':'# contigs'},inplace=True)
     params = pd.DataFrame.from_dict(kwargs,orient='index')
     params.rename(index=str,columns={0:'parameter values'},inplace=True)
-
+    
+    #if complete_analysis!='YES':
     # plot # (with selection constraints as text on fig)
     f, ax = plt.subplots(figsize=(12,12))
     maindf.plot.scatter(xcol,ycol,s=size.divide(3e2).astype(int),alpha=.05,ax=ax,c=colors)
@@ -453,7 +576,7 @@ def cluster_main_tsne(maindf,maindir,**kwargs):
 
     plt.xlabel('tSNE 1');plt.ylabel('tSNE 2')
     if '/' in expt_name:
-    	plt.title(expt_name.split('/')[1].split('_')[1]+', min cluster size = '+str(minCS)+', cluster method = '+CSM)
+        plt.title(expt_name.split('/')[1].split('_')[1]+', min cluster size = '+str(minCS)+', cluster method = '+CSM)
     else:
         plt.title(expt_name+', min cluster size = '+str(minCS)+', cluster method = '+CSM)
 
@@ -474,7 +597,10 @@ def cluster_quality(tsne,maindir,savename):
     matrix = pd.DataFrame(index=tsne.Bin.unique(),columns=tsne.genome.unique())
     for genome in matrix.columns:
         matrix[genome] = tsne[tsne.genome==genome].groupby('Bin').count()[0]
-    matrix.drop('-01',inplace=True)
+    try:
+        matrix.drop('-01',inplace=True) 
+    except KeyError:
+        print('No bin -01 in tSNE'+savename.split('_')[-1])
     genome_centric = matrix.divide(matrix.sum())
     cluster_centric = matrix.T.divide(matrix.sum(axis=1))
 
@@ -482,6 +608,7 @@ def cluster_quality(tsne,maindir,savename):
     complet = completeness(matrix)
     v_measure = 2*homogen*complet/(homogen+complet)
 
+    """
     f,ax = plt.subplots(1,2,figsize=(10,5))
     cluster_centric.max().sort_values().plot(style='-o',ax=ax[0])
     ax[0].set_xticks([])
@@ -494,7 +621,7 @@ def cluster_quality(tsne,maindir,savename):
     ax[1].set_ylabel('Largest single-cluster fraction')
     f.savefig(maindir+'plots/'+savename+'_cluster_qual.png')
     plt.close(f)
-
+    """
     return(homogen,complet,v_measure)
 
 def homogeneity(matrix):
@@ -529,7 +656,6 @@ def minCS_sweep(tsne,maindir,subfolder,savename):
     minCS_sw = [int(round(f*min_GTgenome_contigs)) for f in sweep_pct]
     leafdf = pd.DataFrame(index=minCS_sw,columns=['hom_leaf','com_leaf','val_leaf'])
     eomdf = pd.DataFrame(index=minCS_sw,columns=['hom_eom','com_eom','val_eom'])
-    eom = [];leaf=[]
     for mcs in minCS_sw:
         #perc_int = int(perc*1e2)
         exptna = subfolder+'/'+savename+'_eom_minCS_'+str(mcs)

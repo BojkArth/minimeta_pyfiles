@@ -19,6 +19,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import euclidean_distances
 
+from sys import platform
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -169,11 +170,23 @@ def fragment_genomes_make_kmertable(maindir,contiglengths,kmernum,savename):
 def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     entire_start = time.time()
     # count total number of sequences in fasta:
-    bashCommand = "grep '>' "+fastapath+" | wc -l"
-    command = os.popen(bashCommand)
-    out = command.read()
-    numseq = out.strip()
+    if platform == "linux" or platform == "linux2":
+        # linux
+        numseq = 16985 # do this here for now
+    elif platform == "darwin":
+        # OS X
+        bashCommand = "grep '>' "+fastapath+" | wc -l"
+        command = os.popen(bashCommand)
+        out = command.read()
+        numseq = out.strip()
+    elif platform == "win32":
+        numseq='we dont use windows'
+    print('Total number of fasta sequences:'+str(numseq))
     
+    if float(numseq)<10:
+        print('aborting, something went wrong in counting fasta lines')
+        return 0
+
     kmers = [''.join(i) for i in itertools.product('ACTG',repeat=kmernum)] #dim = 1024 5mers, 256 4mers, 4096 6mers
     kmerdf = pd.DataFrame(columns=kmers)
     contigdf = pd.DataFrame(columns=['Sequence length', 'GC','description'])
@@ -181,6 +194,11 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     fastacount = 0
     batchcount = 0
     start = time.time()
+    print('----------------------------------------------------')
+    print('Started collecting kmers, dimensionality = '+str(len(kmers)))
+    hour = time.localtime()[3];minute = time.localtime()[4]
+    print('Local time: '+str(hour)+':'+str(minute))
+    print('----------------------------------------------------')
     for s in HTSeq.FastaReader(fastapath):
         seqstring = s.seq.decode('utf-8')
         length = len(seqstring)
@@ -198,7 +216,7 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
             hour = time.localtime()[3]
             minute = time.localtime()[4]
             print('----------------------------------------------------')
-            print('Collecting kmers for '+str(fastacount)+' contigs out of '+numseq+' done, took {:.2f} s'.format(end-start))
+            print('Collecting kmers for '+str(fastacount)+' contigs out of '+str(numseq)+' done, took {:.2f} s'.format(end-start))
             print('Progress: '+str(np.round(fastacount/int(numseq)*1e2,2))+' %, local time: '+str(hour)+':'+str(minute))
             print('Total elapsed time is {:.2f} minutes'.format((end-entire_start)/60))
             print('----------------------------------------------------')
@@ -213,9 +231,38 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     kmerdf.to_pickle(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer.pickle')
     return(contigdf,kmerdf)
 
-def make_coverage(contigdf,statsdf):
+def make_coverage(contigdf,statsdf,maindir,savename):
     # compute coverage by getting mean genome coverage from lognormal distribution
     # assign exact coverage to each contig by pulling from normal distribution centered around mean genome cov
+    num_genomes = len(statsdf)
+    mu, sigma = 5., 1. # mean and standard deviation
+    coverage = np.random.lognormal(mu, sigma, num_genomes)
+    coverage = pd.DataFrame(coverage)
+    coverage.rename(index=str,columns={0:'mean_coverage'},inplace=True)
+    coverage.set_index(statsdf.index,inplace=True)
+    a=[f for f in time.localtime()]
+    b = [str("{0:0=2d}".format(f)) for f in a[1:]]
+    timestamp = [str(a[0])+b[0]+b[1]+'_'+b[2]+':'+b[3]+':'+b[4]]
+    timestamp = timestamp[0]
+    coverage.to_pickle(maindir+'stats/'+'coverage'+savename+'_'+timestamp)
+    statsdf['mean_coverage'] = coverage['mean_coverage']
+    for genome in contigdf.genome:
+        idx = contigdf[contigdf.genome==genome].index
+        mu = statsdf.loc[genome,'mean_coverage'] # mean of normal distribution
+        contigdf.loc[idx,'coverage_frac'] = np.random.normal(mu,.1*mu,len(idx)) # normal 1
+        contigdf.loc[idx,'coverage_log'] = np.random.normal(mu,np.log(mu),len(idx)) # normal 2
+    contigdf.to_pickle(maindir+'stats/contigdf_'+savename+'_'+timestamp) # for reproducibility
+    statsdf.to_pickle(maindir+'stats/statsdf_'+savename+'_'+timestamp) # for reproducibility
+
+    keys = statsdf.index; values = sns.color_palette('deep',len(keys))
+    lut = dict(zip(keys,values))
+    colors = contigdf.genome.map(lut)
+    f,ax = plt.subplots(figsize=(8,8))
+    contigdf.plot.scatter('GC','coverage_frac',s=contigdf['Sequence length'].astype(float).divide(1e2),color=colors,alpha=.2,ax=ax)
+    plt.yscale('log')
+    plt.ylabel('Coverage')
+
+    f.savefig(maindir+'plots/GCvsCoverage_'+savename+'_'+timestamp+'.png')
     
     return contigdf,statsdf
  

@@ -370,6 +370,47 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,maindir,savename):
     hdbsweep.to_pickle(maindir+savename.split('_')[0]+'_allPCs_clustersweep_Quality')
     return tsnedf_main,optimaldf,hdbsweep
 
+def make_Opt_tSNE(final_df,maindir,alltsnes_df_pickle,savename):
+    """
+    Makes the tSNE dataframe with optimal number of PCs and HDBscan params
+    These are calculated by the "perform_complete_analysis" function
+    final_df = optimaldf
+    alltsnes_df_pickle = pickle of tsnedf_main
+    """
+    tsne_all = pd.read_pickle(maindir+alltsnes_df_pickle)
+    max_v_meas = final_df['max'].max()
+    numPCsOpt = final_df['max'].astype(float).idxmax()
+    minCS_Opt = final_df.loc[numPCsOpt,'idxmax']
+    print('Max V-measure = '+str(np.round(max_v_meas,3))+', with '+str(numPCsOpt)+' PCs and minimum cluster size of '+str(minCS_Opt)+' contigs.')
+    #cols = [f+'_leaf_PC'+str(numPCsOpt) for f in ['hom','com','val']]
+    tsne_x,tsne_y = 'x_PC'+str(numPCsOpt),'y_PC'+str(numPCsOpt)
+    tsne_opt = tsne_all[[tsne_x,tsne_y,'Sequence length','GC','genome']].copy()
+    lut = dict(zip([tsne_x,tsne_y],[0,1]))
+    tsne_opt.rename(index=str,columns=lut,inplace=True)
+    keys = ['min_cluster_size','min_samples','cluster_selection_method','allow_single_cluster','expt_name']
+    values = [int(minCS_Opt),1,'leaf',True,savename]
+    kwds = dict(zip(keys,values))
+    tsne_opt, statsOpt, Qmeas = cluster_main_tsne(tsne_opt,maindir,**kwds)
+    
+    """compute completeness and heterogeneity (#contigs and sequence length)"""
+    for binn in statsOpt.index:
+        if binn!=-1:
+            statsOpt.loc[binn,'seq_len'] = tsne_opt[tsne_opt.DBclusternum==binn].groupby('genome').sum()['Sequence length'].max()
+            statsOpt.loc[binn,'seq_len_idx'] = tsne_opt[tsne_opt.DBclusternum==binn].groupby('genome').sum()['Sequence length'].idxmax()
+            statsOpt.loc[binn,'num_contigs'] = tsne_opt[tsne_opt.DBclusternum==binn].groupby('genome').count()['Sequence length'].max()
+            statsOpt.loc[binn,'num_contigs_idx'] = tsne_opt[tsne_opt.DBclusternum==binn].groupby('genome').count()['Sequence length'].idxmax()
+            genome = statsOpt.loc[binn,'num_contigs_idx']
+            genome2 = statsOpt.loc[binn,'seq_len_idx']
+            statsOpt.loc[binn,'completeness'] = np.round(statsOpt.loc[binn,'num_contigs']/len(tsne_opt[tsne_opt.genome==genome])*100,2)
+            statsOpt.loc[binn,'completeness(seqlen)'] = np.round(statsOpt.loc[binn,'seq_len']/tsne_opt[tsne_opt.genome==genome2]['Sequence length'].sum()*100,2)
+    statsOpt['homogeneity'] = np.round(statsOpt['num_contigs'].divide(statsOpt['# contigs'])*100,2)
+    statsOpt['contamination'] = np.round(100 - statsOpt['homogeneity'],2)
+    statsOpt['homogeneity(seqlen)'] = np.round(statsOpt['seq_len'].divide(statsOpt['total length'])*100,2)
+    statsOpt['contamination(seqlen)'] = np.round(100 - statsOpt['homogeneity(seqlen)'],2)
+    # add number of contigs and seqlen of genome in other clusters, as well as unclustered 
+
+    return tsne_opt,statsOpt
+
 
 def perform_PCA(kmer_df):
     x = StandardScaler().fit_transform(kmer_df)

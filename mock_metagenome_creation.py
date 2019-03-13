@@ -403,12 +403,59 @@ def make_Opt_tSNE(final_df,maindir,alltsnes_df_pickle,savename):
             genome2 = statsOpt.loc[binn,'seq_len_idx']
             statsOpt.loc[binn,'completeness'] = np.round(statsOpt.loc[binn,'num_contigs']/len(tsne_opt[tsne_opt.genome==genome])*100,2)
             statsOpt.loc[binn,'completeness(seqlen)'] = np.round(statsOpt.loc[binn,'seq_len']/tsne_opt[tsne_opt.genome==genome2]['Sequence length'].sum()*100,2)
+            statsOpt.loc[binn,'GTgenome_in_other_cluster(seqlen)'] = tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum!=binn)&(tsne_opt.DBclusternum!=-1)]['Sequence length'].sum()
+            statsOpt.loc[binn,'GTgenome_unclustered(seqlen)'] = tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==-1)]['Sequence length'].sum()
+            statsOpt.loc[binn,'%genome_unclus'] = np.round(statsOpt.loc[binn,'GTgenome_unclustered']/len(tsne_opt[tsne_opt.genome==genome])*100,2)
+            statsOpt.loc[binn,'%genome_inother'] = np.round(statsOpt.loc[binn,'GTgenome_in_other_cluster']/len(tsne_opt[tsne_opt.genome==genome])*100,2)
+            statsOpt.loc[binn,'%genome_unclus(seqlen)'] = np.round(statsOpt.loc[binn,'GTgenome_unclustered(seqlen)']/tsne_opt[tsne_opt.genome==genome]['Sequence length'].sum()*100,2)
+            statsOpt.loc[binn,'%genome_inother(seqlen)'] = np.round(statsOpt.loc[binn,'GTgenome_in_other_cluster(seqlen)']/tsne_opt[tsne_opt.genome==genome]['Sequence length'].sum()*100,2)
+
+
     statsOpt['homogeneity'] = np.round(statsOpt['num_contigs'].divide(statsOpt['# contigs'])*100,2)
     statsOpt['contamination'] = np.round(100 - statsOpt['homogeneity'],2)
     statsOpt['homogeneity(seqlen)'] = np.round(statsOpt['seq_len'].divide(statsOpt['total length'])*100,2)
     statsOpt['contamination(seqlen)'] = np.round(100 - statsOpt['homogeneity(seqlen)'],2)
     # add number of contigs and seqlen of genome in other clusters, as well as unclustered 
-
+    genomes_unrepresented = list(set(tsne_opt.genome).difference(set(statsOpt.seq_len_idx.dropna())))
+    unclust_idx = ['unclus_'+str(f) for f in range(len(genomes_unrepresented))]
+    unclustered = pd.DataFrame(index=unclust_idx,columns=['num_contigs_idx','%genome_unclus','%genome_unclus(seqlen)','%genome_inother','%genome_inother(seqlen)'])
+    unclustered['num_contigs_idx'] = genomes_unrepresented
+    for genome in unclustered.num_contigs_idx:
+        idx = unclustered[unclustered.num_contigs_idx==genome].index
+        unclustered.loc[idx,'GTgenome_unclustered(seqlen)'] = tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==-1)]['Sequence length'].sum()
+        unclustered.loc[idx,'GTgenome_in_other_cluster(seqlen)'] = tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum!=-1)]['Sequence length'].sum()
+        unclustered.loc[idx,'GTgenome_unclustered'] = len(tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==-1)])
+        unclustered.loc[idx,'GTgenome_in_other_cluster'] = len(tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum!=-1)])
+        unclustered.loc[idx,'%genome_unclus(seqlen)'] = np.round(unclustered.loc[idx,'GTgenome_unclustered(seqlen)']/tsne_opt[(tsne_opt.genome==genome)]['Sequence length'].sum()*100,2)
+        unclustered.loc[idx,'%genome_inother(seqlen)'] = np.round(unclustered.loc[idx,'GTgenome_in_other_cluster(seqlen)']/tsne_opt[(tsne_opt.genome==genome)]['Sequence length'].sum()*100,2)
+        unclustered.loc[idx,'%genome_unclus'] = np.round(unclustered.loc[idx,'GTgenome_unclustered']/len(tsne_opt[(tsne_opt.genome==genome)])*100,2)
+        unclustered.loc[idx,'%genome_inother'] = np.round(unclustered.loc[idx,'GTgenome_in_other_cluster']/len(tsne_opt[(tsne_opt.genome==genome)])*100,2)
+    statsOpt = statsOpt.append(unclustered,sort=False,ignore_index=False)
+    
+    """
+    PLOTTING
+    """
+    f,ax = plt.subplots(figsize=(5,13))
+    idx = statsOpt.drop(-1,axis=0)[['num_contigs_idx','completeness(seqlen)','%genome_unclus(seqlen)','%genome_inother(seqlen)']].sort_values('completeness(seqlen)',ascending=False).index
+    statsOpt.drop(-1,axis=0)[['num_contigs_idx','completeness(seqlen)','%genome_unclus(seqlen)','%genome_inother(seqlen)']].sort_values('completeness(seqlen)',ascending=False).plot.barh(stacked=True,ax=ax,cmap='Paired')
+    tix = list(statsOpt.loc[idx,'num_contigs_idx'])
+    loc,label = plt.yticks()
+    combined = [str(y)+',  '+str(x) for x,y in zip(tix,idx)]
+    plt.yticks(loc,combined)
+    plt.gca().invert_yaxis()
+    plt.legend(['Correct call (TP)','Unclustered (FN)','Incorrect call (FP)'],loc='upper right',bbox_to_anchor=(1.7,1))
+    plt.title('Cluster-genome quality')
+    plt.xlabel('Assembled sequence length (%)')
+    f.savefig(maindir+'plots/'+savename+'_clusterGTgenomeQuality.png')
+    
+    tsne_opt.to_pickle(maindir+'stats/'+savename+'_tSNE_OptimalClustering')
+    statsOpt.to_pickle(maindir+'stats/'+savename+'_OptimalClustering_stats')
+    print('----------------------------------------------------')
+    print('Sequence-based average genome recovery is {:.1f}%'.format(statsOpt['completeness(seqlen)'].fillna(0).mean()))
+    print('Median genome recovery is {:.1f}%'.format(statsOpt['completeness(seqlen)'].fillna(0).median()))
+    print('Average recovery of clustered genomes is {:.2f}%'.format(statsOpt['completeness(seqlen)'].dropna().mean()))
+    print('Median recovery of clustered genomes is {:.2f}%'.format(statsOpt['completeness(seqlen)'].dropna().median()))
+    print('----------------------------------------------------')    
 
     return tsne_opt,statsOpt
 

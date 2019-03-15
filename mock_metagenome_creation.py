@@ -188,11 +188,23 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
         return 0
 
     kmers = [''.join(i) for i in itertools.product('ACTG',repeat=kmernum)] #dim = 1024 5mers, 256 4mers, 4096 6mers
-    kmerdf = pd.DataFrame(columns=kmers)
-    contigdf = pd.DataFrame(columns=['Sequence length', 'GC','description'])
+
+    # check if previous file already exists
+    if os.path.isfile(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer_incomplete.pickle'):
+        kmerdf = pd.read_pickle(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer_incomplete.pickle')
+        contigdf = pd.read_pickle(savedir+'contigdf_from_metagenome_fasta_'+str(kmernum)+'mer_incomplete.pickle')
+        batchcount = len(kmerdf)
+        fastacount = batchcount
+        print('The first '+str(fastacount)+' kmers have already been collected for this fasta, loaded from local path:')
+        print(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer_incomplete.pickle')
+    else:
+        kmerdf = pd.DataFrame(columns=kmers)
+        contigdf = pd.DataFrame(columns=['Sequence length', 'GC','description'])
+        batchcount = 0
+        fastacount = 0
     #counts = khmer.Counttable(kmernum,1e7,kmernum+10)
-    fastacount = 0
-    batchcount = 0
+
+
     start = time.time()
     print('----------------------------------------------------')
     print('Started collecting kmers, dimensionality = '+str(len(kmers)))
@@ -200,16 +212,17 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
     print('Local time: '+str(hour)+':'+str(minute))
     print('----------------------------------------------------')
     for s in HTSeq.FastaReader(fastapath):
-        seqstring = s.seq.decode('utf-8')
-        length = len(seqstring)
-        GC = (seqstring.count('G')+seqstring.count('C'))/len(seqstring)
-        contigdf.loc[s.name] = {'Sequence length':length,'GC':GC,'description':s.descr}
-        #counts.consume(seqstring)
-        for kmer in kmers:
-            #kmerdf.loc[seq.name,kmer] = sum(newcontig[i:].startswith(kmer) for i in range(len(newcontig)))
-            kmerdf.loc[s.name,kmer] = len(re.findall('(?='+kmer+')',seqstring))
-            #kmerdf.loc[s.name,kmer] = counts.get(kmer)
-        fastacount+=1
+        if s.name not in kmerdf.index:
+            seqstring = s.seq.decode('utf-8')
+            length = len(seqstring)
+            GC = (seqstring.count('G')+seqstring.count('C'))/len(seqstring)
+            contigdf.loc[s.name] = {'Sequence length':length,'GC':GC,'description':s.descr}
+            #counts.consume(seqstring)
+            for kmer in kmers:
+                #kmerdf.loc[seq.name,kmer] = sum(newcontig[i:].startswith(kmer) for i in range(len(newcontig)))
+                kmerdf.loc[s.name,kmer] = len(re.findall('(?='+kmer+')',seqstring))
+                #kmerdf.loc[s.name,kmer] = counts.get(kmer)
+            fastacount+=1
         end = time.time()
         if fastacount==500 or fastacount-batchcount==500:
             batchcount = batchcount+500
@@ -219,9 +232,13 @@ def make_kmertable_from_fasta_contigs(fastapath,kmernum,savedir):
             print('Collecting kmers for '+str(fastacount)+' contigs out of '+str(numseq)+' done, took {:.2f} s'.format(end-start))
             print('Progress: '+str(np.round(fastacount/int(numseq)*1e2,2))+' %, local time: '+str(hour)+':'+str(minute))
             print('Total elapsed time is {:.2f} minutes'.format((end-entire_start)/60))
+            print('Saving current contig kmers to pickle...')
+            kmerdf.to_pickle(savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer_incomplete.pickle')
+            contigdf.to_pickle(savedir+'contigdf_from_metagenome_fasta_'+str(kmernum)+'mer_incomplete.pickle')
+            print('relative path = '+savedir+'kmerdf_from_metagenome_fasta_'+str(kmernum)+'mer_incomplete.pickle')
             print('----------------------------------------------------')
             start = time.time()
-        
+
     entire_end = time.time()
     hour = time.localtime()[3]
     minute = time.localtime()[4]
@@ -284,12 +301,22 @@ def distance_matrix_from_tsne(tSNE_df):
         dist_matrix[contig] = distance_calc(tSNE_df.loc[contig],tSNE_df)
     return dist_matrix"""
     
-def perform_complete_analysis(kmerdf,contigdf,statsdf,maindir,savename):
+def perform_complete_analysis(kmerdf,contigdf,statsdf,**kwargs):
+    """
+    Given a set of kmers, this function performs a full parameter sweep of
+    	number of PCs
+    	minimum cluster size (HDBscan)
+    kwargs must contain:
+    	maindir
+    	savename
+    	coverage_included
+    """
+    maindir,savename,coverage = kwargs['maindir'],kwargs['savename'],kwargs['coverage_included']
     global num_kmers
     num_kmers = len(kmerdf.T)
     kmer_length = int(np.log(num_kmers)/np.log(4))
     start_time = time.time()
-    
+
     savename = savename+'_'+str(kmer_length)+'mers'
 
     maindir = maindir
@@ -299,25 +326,41 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,maindir,savename):
     firstround = 'YES'
     if kmer_length==5:
         pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[3:-1]]
-    elif kmer_length==6:
+    elif kmer_length>=6:
         pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[8:]]
     else:
         print('define range of PCs first!')
         return 0
-    
+
     optimaldf = pd.DataFrame(index=pcs_to_reduce+[num_kmers],columns=['idxmax','max'])
     
     kmerdf_norm = kmerdf.divide(contigdf['Sequence length'],axis=0)
-    print('building tSNE of all '+str(kmer_length)+'-mers')
-    tsnedf_main = make_tsne_from_df(kmerdf_norm,contigdf,statsdf,maindir,savename)
-    end = time.time()
-    print('finished building main tSNE, this took {:.2f} seconds'.format(end - start_time))
-    print('performing cluster sweep of tSNE of all '+str(kmer_length)+'-mers')
+    if coverage=='YES':
+        kmerdf_norm = kmerdf_norm.join(contigdf['coverage_frac'])
+        print('Contig coverage added as dimension')
+
+    ##################################################
+    ##################################################
+    if os.path.isfile(maindir+'tsnedf_'+savename+'.pickle'):
+        print('tSNE-df previously made, loading from pickle, full path = ')
+        print(maindir+'tsnedf_'+savename+'.pickle')
+        tsnedf_main = pd.read_pickle(maindir+'tsnedf_'+savename+'.pickle')
+        plot_tsnedf_metrics(tsnedf_main,maindir,savename+'_'+str(num_kmers)+'_dimensions')
+    else:
+        print('building tSNE of all '+str(num_kmers)+' dimensions')
+        tsnedf_main = make_tsne_from_df(kmerdf_norm,contigdf,statsdf,maindir,savename)
+        end = time.time()
+        print('finished building main tSNE, this took {:.2f} seconds'.format(end - start_time))
+        print('performing cluster sweep of tSNE of all '+str(num_kmers)+' dimensions')
+    ##################################################
+    ##################################################
+
     start = time.time()
     hdbsweep = minCS_sweep(tsnedf_main,maindir,savename,savename)
     end = time.time()
     print('finished cluster sweep of main tSNE, this took {:.2f} seconds'.format(end - start))
     print('Total elapsed time is {:.2f} minutes'.format((end-start_time)/60))
+
     keys = [0,1];values = ['x_'+str(kmer_length)+'mers','y_'+str(kmer_length)+'mers']
     newnames = dict(zip(keys,values))
     tsnedf_main.rename(index=str,columns=newnames,inplace=True)
@@ -330,9 +373,28 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,maindir,savename):
     hdbsweep.rename(index=int,columns=lut,inplace=True)
      
     firstround=='NO'
-    
-    pcdf = perform_PCA(kmerdf_norm)
-    
+    ##################################################
+    ##################################################
+    if os.path.isfile(maindir+'PCAdf_'+savename+'.pickle'):
+        print('PCA performed earlier, loading file:\n'+maindir+'PCAdf_'+savename+'.pickle')
+        pcdf = pd.read_pickle(maindir+'PCAdf_'+savename+'.pickle')
+        if os.path.isfile(maindir+savename.split('_')[0]+str(kmer_length)+'mers_all_tSNEs_temp'):
+            tsnedf_main = pd.read_pickle(maindir+savename.split('_')[0]+str(kmer_length)+'mers_all_tSNEs_temp')
+            optimaldf = pd.read_pickle(maindir+savename.split('_')[0]+'_optimalValues_perPC_temp')
+            hdbsweep = pd.read_pickle(maindir+savename.split('_')[0]+'_allPCs_clustersweep_Quality_temp')
+            cols = tsnedf_main.columns
+            pcs_done = list(set([int(f[4:]) for f in cols[4:]]))
+            [pcs_to_reduce.remove(f) for f in pcs_done]
+            print('Some tSNEs already calculated, resuming at dim reduction of '+str(pcs_to_reduce[0])+' PCs')
+    else:
+        print('Performing PCA...')
+        pcdf = perform_PCA(kmerdf_norm)
+        pcdf.to_pickle(maindir+'PCAdf_'+savename+'.pickle')
+        print('PCA done and saved.')
+    ##################################################
+    ##################################################
+    ##################################################
+    ##################################################
     for numpcs in pcs_to_reduce:
         print('building tSNE of '+str(numpcs)+' PCs')
         start = time.time()
@@ -353,14 +415,19 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,maindir,savename):
         newnames = dict(zip(keys,values))
         tsnedf_main = tsnedf_main.join(tsnedf_temp[[0,1]])
         tsnedf_main.rename(index=str,columns=newnames,inplace=True)
+        tsnedf_main.to_pickle(maindir+savename.split('_')[0]+str(kmer_length)+'mers_all_tSNEs_temp')
         
         optimaldf.loc[numpcs,'max'] = hdb_temp['val_leaf'].max()
         optimaldf.loc[numpcs,'idxmax'] = hdb_temp['val_leaf'].idxmax()
+        optimaldf.to_pickle(maindir+savename.split('_')[0]+'_optimalValues_perPC_temp')
         
         keys = hdb_temp.columns;values = [f+'_PC'+str(numpcs) for f in keys]
         lut = dict(zip(keys,values))
         hdb_temp.rename(index=int,columns=lut,inplace=True)
         hdbsweep = hdbsweep.join(hdb_temp)
+        hdbsweep.to_pickle(maindir+savename.split('_')[0]+'_allPCs_clustersweep_Quality_temp')
+    ##################################################
+    ##################################################
             
     end = time.time()
     print('Finished everything.')
@@ -405,6 +472,8 @@ def make_Opt_tSNE(final_df,maindir,alltsnes_df_pickle,savename):
             statsOpt.loc[binn,'completeness(seqlen)'] = np.round(statsOpt.loc[binn,'seq_len']/tsne_opt[tsne_opt.genome==genome2]['Sequence length'].sum()*100,2)
             statsOpt.loc[binn,'GTgenome_in_other_cluster(seqlen)'] = tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum!=binn)&(tsne_opt.DBclusternum!=-1)]['Sequence length'].sum()
             statsOpt.loc[binn,'GTgenome_unclustered(seqlen)'] = tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==-1)]['Sequence length'].sum()
+            statsOpt.loc[binn,'GTgenome_in_other_cluster'] = len(tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum!=binn)&(tsne_opt.DBclusternum!=-1)])
+            statsOpt.loc[binn,'GTgenome_unclustered'] = len(tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==-1)])
             statsOpt.loc[binn,'%genome_unclus'] = np.round(statsOpt.loc[binn,'GTgenome_unclustered']/len(tsne_opt[tsne_opt.genome==genome])*100,2)
             statsOpt.loc[binn,'%genome_inother'] = np.round(statsOpt.loc[binn,'GTgenome_in_other_cluster']/len(tsne_opt[tsne_opt.genome==genome])*100,2)
             statsOpt.loc[binn,'%genome_unclus(seqlen)'] = np.round(statsOpt.loc[binn,'GTgenome_unclustered(seqlen)']/tsne_opt[tsne_opt.genome==genome]['Sequence length'].sum()*100,2)
@@ -432,6 +501,8 @@ def make_Opt_tSNE(final_df,maindir,alltsnes_df_pickle,savename):
         unclustered.loc[idx,'%genome_inother'] = np.round(unclustered.loc[idx,'GTgenome_in_other_cluster']/len(tsne_opt[(tsne_opt.genome==genome)])*100,2)
     statsOpt = statsOpt.append(unclustered,sort=False,ignore_index=False)
     
+    # make adjusted rand index (make True_labels column in statsOpt first )
+
     """
     PLOTTING
     """
@@ -451,10 +522,12 @@ def make_Opt_tSNE(final_df,maindir,alltsnes_df_pickle,savename):
     tsne_opt.to_pickle(maindir+'stats/'+savename+'_tSNE_OptimalClustering')
     statsOpt.to_pickle(maindir+'stats/'+savename+'_OptimalClustering_stats')
     print('----------------------------------------------------')
-    print('Sequence-based average genome recovery is {:.1f}%'.format(statsOpt['completeness(seqlen)'].fillna(0).mean()))
-    print('Median genome recovery is {:.1f}%'.format(statsOpt['completeness(seqlen)'].fillna(0).median()))
+    print('Sequence-based average genome recovery is {:.1f}%'.format(statsOpt['completeness(seqlen)'].drop(-1).fillna(0).mean()))
+    print('Median genome recovery is {:.1f}%'.format(statsOpt['completeness(seqlen)'].drop(-1).fillna(0).median()))
     print('Average recovery of clustered genomes is {:.2f}%'.format(statsOpt['completeness(seqlen)'].dropna().mean()))
     print('Median recovery of clustered genomes is {:.2f}%'.format(statsOpt['completeness(seqlen)'].dropna().median()))
+    perc_unseen = len(genome_unrepresented)/len(statsOpt)*100
+    print('Number of unseen genomes: '+str(int(len(genome_unrepresented)))+'/'+str(int(len(statsOpt)))+', or '+str(np.round(perc_unseen,2))+'%')
     print('----------------------------------------------------')    
 
     return tsne_opt,statsOpt
@@ -728,6 +801,36 @@ def cluster_main_tsne(maindf,maindir,**kwargs):
 def hdb_clustering_QC(tsnedf_withBins,statsdf):
     return 0
 
+def plot_optimal_clustering(tsne_opt,stats_opt,maindir,subfolder,savename):
+    color = sns.color_palette('Paired',15)
+    #subfolder = 'feb15_5mers_optimal'
+    #savename = 'feb15_5mers'
+    if not os.path.isdir(maindir+'plots/'+subfolder):
+        os.mkdir(maindir+'plots/'+subfolder)
+    for genomeclu in stats_opt.index:
+        if genomeclu!=-1:
+            genome = stats_opt.loc[genomeclu,'num_contigs_idx']
+            cluster = genomeclu
+            f,ax = plt.subplots(figsize=(10,10))
+            if len(str(cluster))<5:
+                tsne_opt[(tsne_opt.genome!=genome)&(tsne_opt.DBclusternum!=cluster)].plot.scatter(0,1,alpha=.1,ax=ax,color='gray',label=None)
+                tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==cluster)].plot.scatter(0,1,alpha=.4,ax=ax,color='b',label='Correct call')
+                try:
+                    tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==-1)].plot.scatter(0,1,alpha=.3,ax=ax,color=color[6],label='Unclustered, but part of genome')
+                    tsne_opt[(tsne_opt.genome!=genome)&(tsne_opt.DBclusternum==cluster)].plot.scatter(0,1,alpha=.3,ax=ax,color=color[11],label='Incorrect call')
+                except ValueError:
+                    print('no incorrect calls for cluster '+str(cluster))
+            else:
+                tsne_opt[(tsne_opt.genome!=genome)&(tsne_opt.DBclusternum!=cluster)].plot.scatter(0,1,alpha=.1,ax=ax,color='gray',label=None)
+                tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum==-1)].plot.scatter(0,1,alpha=.3,ax=ax,color=color[6],label='Unclustered, but part of genome')
+                tsne_opt[(tsne_opt.genome==genome)&(tsne_opt.DBclusternum!=-1)].plot.scatter(0,1,alpha=.3,ax=ax,color=color[11],label='Incorrect call')
+            if savename=='feb15_5mers':
+                plt.xlim(right=30)
+            plt.title(savename+' genome '+str(genome)+' cluster '+str(cluster))
+            plt.legend(loc='lower center',bbox_to_anchor=(0.5,-.1),ncol=3)
+            plt.xlabel('');plt.ylabel('')
+            f.savefig(maindir+'plots/'+subfolder+'/'+savename+'_genome_'+str(genome)+'_cluster_'+str(cluster)+'.png')
+            plt.close(f)
 
 def cluster_quality(tsne,maindir,savename):
     matrix = pd.DataFrame(index=tsne.Bin.unique(),columns=tsne.genome.unique())

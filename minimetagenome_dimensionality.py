@@ -37,7 +37,11 @@ Functions:
 """
 def perform_PCA(kmer_df):
     x = StandardScaler().fit_transform(kmer_df)
-    pca = PCA(n_components=1000)
+    if len(kmer_df.T)<1000:
+        n_comp = len(kmer_df.T)
+    else:
+        n_comp = 1e3
+    pca = PCA(n_components=n_comp)
     principalComp = pca.fit_transform(x)
     princdf = pd.DataFrame(principalComp)
     princdf.index =kmer_df.index
@@ -95,10 +99,10 @@ def perform_complete_analysis_Coverage(combined_df,kmerlength,contigdf,maindir,s
         print('define range of PCs first!')
         return 0
     """
-
+    idx_incl = combined_df.index
     #optimaldf = pd.DataFrame(index=pcs_to_reduce+[num_dims],columns=['idxmax','max'])
 
-    kmerdf_norm = combined_df.divide(contigdf['Sequence length'],axis=0) # normalize kmers only or kmer and coverage/bp-mapped???
+    kmerdf_norm = combined_df.divide(contigdf.loc[idx_incl,'Sequence length'],axis=0) # normalize kmers only or kmer and coverage/bp-mapped???
     if os.path.isfile(maindir+'tsnedf_'+savename+'.pickle'):
         print('tSNE-df previously made, loading from pickle, full path = ')
         print(maindir+'tsnedf_'+savename+'.pickle')
@@ -136,7 +140,7 @@ def perform_complete_analysis_Coverage(combined_df,kmerlength,contigdf,maindir,s
     if os.path.isfile(maindir+'PCAdf_'+savename+'.pickle'):
         print('PCA performed earlier, loading file:\n'+maindir+'PCAdf_'+savename+'.pickle')
         pcdf = pd.read_pickle(maindir+'PCAdf_'+savename+'.pickle')
-        if os.path.isfile(maindir+savename.split('_')[0]+str(kmer_length)+'mers_all_tSNEs_temp')
+        if os.path.isfile(maindir+savename.split('_')[0]+str(kmer_length)+'mers_all_tSNEs_temp'):
             tsnedf_main = pd.read_pickle(maindir+savename.split('_')[0]+str(kmer_length)+'mers_all_tSNEs_temp')
             cols = tsnedf_main.columns
             pcs_done = list(set([int(f[4:]) for f in cols[4:]]))
@@ -189,3 +193,53 @@ def perform_complete_analysis_Coverage(combined_df,kmerlength,contigdf,maindir,s
     #hdbsweep.to_pickle(maindir+savename.split('_')[0]+'_allPCs_clustersweep_Quality')
     return tsnedf_main#,optimaldf,hdbsweep
 
+
+def plotPCs(tsnedf,main,maindir,savename):
+    #tsne6minicov = pd.read_pickle(maindir+'FBminiCovOnly6mers_all_tSNEs')
+    cols = tsnedf.columns
+    axes = list(set([f for f in cols[4:]]))
+    pcs_done = list(set([int(f[4:]) for f in cols[4:]]))
+    #savename = 'FBk6mer_PCA_miniOnlyCov'
+    for pc in np.sort(pcs_done):
+        x = 'x_PC'+str(pc)
+        y = 'y_PC'+str(pc)
+        f,ax = plt.subplots(figsize=(12,10))
+        tsnedf.plot.scatter(x,y,c=tsnedf['GC'],s=tsnedf['Sequence length'].astype(float)/3e2
+                           ,alpha=.05,ax=ax,cmap='RdBu_r')
+        plt.title(str(pc)+' PCs')
+        f.savefig(maindir+'plots/tsne_'+savename+'_'+str(pc)+'PCs.png')
+        plt.close(f)
+
+        color,lut = color_top1pct_phylum(tsnedf,main)
+
+        f,ax = plt.subplots(figsize=(13,10))
+        tsnedf.plot.scatter(x,y,c=color,s=tsnedf['Sequence length'].astype(float)/3e2
+                           ,alpha=.2,ax=ax)
+        for x,y in lut.items():
+            plt.bar(0,0,color=y,label=x,alpha=1)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[0:],labels[0:], loc='upper right',
+                   ncol=1,fontsize=14,bbox_to_anchor=(1.5, 1))
+        plt.gcf().subplots_adjust(right=0.7)
+        plt.ylabel('tSNE 2');plt.xlabel('tSNE 1')
+        plt.title(str(pc)+' PCs')
+        f.savefig(maindir+'plots/tsne_phylum_'+savename+'_'+str(pc)+'PCs.png')
+        plt.close(f)
+
+def color_top1pct_phylum(tsnedf,maindf):
+    idx = tsnedf.index
+    keys = maindf.loc[idx,'Lineage Phylum'].value_counts().index
+    counts = maindf.loc[idx,'Lineage Phylum'].value_counts()
+    relcounts = counts/counts.sum()
+    other = relcounts[relcounts<.01].index
+    ingro = relcounts[relcounts>=.01].index
+    kleg = list(ingro)+['other']
+
+    #lutleg = dict(zip())
+    values = sns.color_palette('Dark2',len(keys))
+    lut = dict(zip(keys,values))
+    lut['Unassigned'] = (.5,.5,.5)
+    for phy in other:
+        lut[phy] = (0.843, 0.858, 0.937) # any phylum that occurs in less than 1% of contigs will get this color
+    color = maindf.loc[idx,'Lineage Phylum'].map(lut)
+    return color,lut

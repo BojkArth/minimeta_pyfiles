@@ -135,7 +135,8 @@ def perform_complete_analysis_Coverage(combined_df,kmerlength,contigdf,maindir,s
     """
 
     firstround=='NO'
-    pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[8:]]
+    pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[4:]]
+    pcs_to_reduce = [f for f in pcs_to_reduce if f<num_dims]
 
     if os.path.isfile(maindir+'PCAdf_'+savename+'.pickle'):
         print('PCA performed earlier, loading file:\n'+maindir+'PCAdf_'+savename+'.pickle')
@@ -225,6 +226,66 @@ def plotPCs(tsnedf,main,maindir,savename):
         plt.title(str(pc)+' PCs')
         f.savefig(maindir+'plots/tsne_phylum_'+savename+'_'+str(pc)+'PCs.png')
         plt.close(f)
+        
+        
+        color,lut = color_top1pct_order(tsnedf,main)
+        x = 'x_PC'+str(pc)
+        y = 'y_PC'+str(pc)
+
+        f,ax = plt.subplots(figsize=(13,10))
+        tsnedf.plot.scatter(x,y,c=color,s=tsnedf['Sequence length'].astype(float)/3e2
+                           ,alpha=.2,ax=ax)
+        for x,y in lut.items():
+            #print(x)
+            plt.bar(0,0,color=y,label=x,alpha=1)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[0:],labels[0:], loc='upper right',
+                   ncol=1,fontsize=14,bbox_to_anchor=(1.5, 1))
+        plt.gcf().subplots_adjust(right=0.7)
+        plt.ylabel('tSNE 2');plt.xlabel('tSNE 1')
+        plt.title(str(pc)+' PCs')
+        f.savefig(maindir+'plots/tsne_order_'+savename+'_'+str(pc)+'PCs.png')
+        plt.close(f)
+
+
+        color,lut = color_top1pct_class(tsnedf,main)
+        x = 'x_PC'+str(pc)
+        y = 'y_PC'+str(pc)
+
+        f,ax = plt.subplots(figsize=(13,10))
+        tsnedf.plot.scatter(x,y,c=color,s=tsnedf['Sequence length'].astype(float)/3e2
+                           ,alpha=.2,ax=ax)
+        for x,y in lut.items():
+            #print(x)
+            plt.bar(0,0,color=y,label=x,alpha=1)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[0:],labels[0:], loc='upper right',
+                   ncol=1,fontsize=14,bbox_to_anchor=(1.5, 1))
+        plt.gcf().subplots_adjust(right=0.7)
+        plt.ylabel('tSNE 2');plt.xlabel('tSNE 1')
+        plt.title(str(pc)+' PCs')
+        f.savefig(maindir+'plots/tsne_class_'+savename+'_'+str(pc)+'PCs.png')
+        plt.close(f)
+
+
+        color,lut = color_top1pct_family(tsnedf,main)
+        x = 'x_PC'+str(pc)
+        y = 'y_PC'+str(pc)
+
+        f,ax = plt.subplots(figsize=(13,10))
+        tsnedf.plot.scatter(x,y,c=color,s=tsnedf['Sequence length'].astype(float)/3e2
+                           ,alpha=.2,ax=ax)
+        for x,y in lut.items():
+            #print(x)
+            plt.bar(0,0,color=y,label=x,alpha=1)
+        handles, labels = ax.get_legend_handles_labels()
+        ax.legend(handles[0:],labels[0:], loc='upper right',
+                   ncol=1,fontsize=14,bbox_to_anchor=(1.7, 1))
+        plt.gcf().subplots_adjust(right=0.7)
+        plt.ylabel('tSNE 2');plt.xlabel('tSNE 1')
+        plt.title(str(pc)+' PCs')
+        f.savefig(maindir+'plots/tsne_family_'+savename+'_'+str(pc)+'PCs.png')
+        plt.close(f)
 
 def color_top1pct_phylum(tsnedf,maindf):
     idx = tsnedf.index
@@ -232,8 +293,8 @@ def color_top1pct_phylum(tsnedf,maindf):
     counts = maindf.loc[idx,'Lineage Phylum'].value_counts()
     relcounts = counts/counts.sum()
     other = relcounts[relcounts<.01].index
-    ingro = relcounts[relcounts>=.01].index
-    kleg = list(ingro)+['other']
+    #ingro = relcounts[relcounts>=.01].index
+    #kleg = list(ingro)+['other']
 
     #lutleg = dict(zip())
     values = sns.color_palette('Dark2',len(keys))
@@ -242,4 +303,76 @@ def color_top1pct_phylum(tsnedf,maindf):
     for phy in other:
         lut[phy] = (0.843, 0.858, 0.937) # any phylum that occurs in less than 1% of contigs will get this color
     color = maindf.loc[idx,'Lineage Phylum'].map(lut)
+    return color,lut
+
+def color_top1pct_order(tsnedf,maindf):
+    idx = tsnedf.index
+    keys = maindf.loc[idx,'Lineage Order'].value_counts().index
+    counts = maindf.loc[idx,'Lineage Order'].value_counts()
+    relcounts = counts/counts.sum()
+    other = relcounts[relcounts<.01].index
+    #ingro = relcounts[relcounts>=.01].index
+    #kleg = list(ingro)+['other']
+
+    #lutleg = dict(zip())
+    values = sns.color_palette('Dark2',len(keys))
+    lut = dict(zip(keys,values))
+    lut['Unassigned'] = (.5,.5,.5)
+    for phy in other:
+        lut[phy] = (0.843, 0.858, 0.937) # any phylum that occurs in less than 1% of contigs will get this color
+    color = maindf.loc[idx,'Lineage Order'].map(lut)
+    return color,lut
+
+def color_top1pct_genus(tsnedf,maindf):
+    idx = tsnedf.index
+    keys = maindf.loc[idx,'Lineage Genus'].value_counts().index
+    counts = maindf.loc[idx,'Lineage Genus'].value_counts()
+    relcounts = counts/counts.sum()
+    other = relcounts[relcounts<.01].index
+    #ingro = relcounts[relcounts>=.01].index
+    #kleg = list(ingro)+['other']
+
+    #lutleg = dict(zip())
+    values = sns.color_palette('Dark2',len(keys))
+    lut = dict(zip(keys,values))
+    lut['Unassigned'] = (.5,.5,.5)
+    for phy in other:
+        lut[phy] = (0.843, 0.858, 0.937) # any phylum that occurs in less than 1% of contigs will get this color
+    color = maindf.loc[idx,'Lineage Genus'].map(lut)
+    return color,lut
+
+def color_top1pct_class(tsnedf,maindf):
+    idx = tsnedf.index
+    keys = maindf.loc[idx,'Lineage Class'].value_counts().index
+    counts = maindf.loc[idx,'Lineage Class'].value_counts()
+    relcounts = counts/counts.sum()
+    other = relcounts[relcounts<.01].index
+    #ingro = relcounts[relcounts>=.01].index
+    #kleg = list(ingro)+['other']
+
+    #lutleg = dict(zip())
+    values = sns.color_palette('Dark2',len(keys))
+    lut = dict(zip(keys,values))
+    lut['Unassigned'] = (.5,.5,.5)
+    for phy in other:
+        lut[phy] = (0.843, 0.858, 0.937) # any phylum that occurs in less than 1% of contigs will get this color
+    color = maindf.loc[idx,'Lineage Class'].map(lut)
+    return color,lut
+
+def color_top1pct_family(tsnedf,maindf):
+    idx = tsnedf.index
+    keys = maindf.loc[idx,'Lineage Family'].value_counts().index
+    counts = maindf.loc[idx,'Lineage Family'].value_counts()
+    relcounts = counts/counts.sum()
+    other = relcounts[relcounts<.01].index
+    #ingro = relcounts[relcounts>=.01].index
+    #kleg = list(ingro)+['other']
+
+    #lutleg = dict(zip())
+    values = sns.color_palette('Dark2',len(keys))
+    lut = dict(zip(keys,values))
+    lut['Unassigned'] = (.5,.5,.5)
+    for phy in other:
+        lut[phy] = (0.843, 0.858, 0.937) # any phylum that occurs in less than 1% of contigs will get this color
+    color = maindf.loc[idx,'Lineage Family'].map(lut)
     return color,lut

@@ -17,6 +17,7 @@ from random import shuffle
 import json
 import HTSeq
 from collections import Counter
+from sys import platform
 
 #my own modules
 import fromasciitodf as fa
@@ -105,9 +106,18 @@ def cluster_main_tsne(maindf,**kwargs):
     write_fasta = kwargs['write_fasta'] # save the fasta Y/n (as in: do dry run clustering first, as fasta writing takes time)
     writedf = kwargs['write_df']
     series = kwargs['is_this_a_series'] # is this a single run or a minCS sweep ('yes'/'no')
-    fastadir = '/home/datastorage/ASSEMBLY_DATA/Permafrost'+expt_name+'/Combined_Analysis/'
-    fastaname = 'super_contigs.Permafrost'+expt_name+'.fasta'
+    outdir = kwargs['outdir']
+    
+    if platform == "linux" or platform == "linux2":
+        fastadir = '/home/datastorage/ASSEMBLY_DATA/Permafrost'+expt_name.split('_')[0]+'/Combined_Analysis/'
+        fastaname = 'super_contigs.Permafrost'+expt_name.split('_')[0]+'.fasta'
+    elif platform == "darwin":
+        fastadir = '/Users/bojk/Google Drive/QuakeLab/Data/Permafrost/'+expt_name.split('_')[0]+'/'
+        fastaname = 'super_contigs.Permafrost'+expt_name.split('_')[0]+'.fasta'
+            
+    
     filename = expt_name+'_main_tSNE_perp_'+perp+'_HDBscan'
+    
     if len(str(minCS))==1:
         filen_ext = '_minCS_00'+str(minCS)+'_minS_'+str(minS)+'_CSM_'+CSM
     elif len(str(minCS))==2:
@@ -115,7 +125,7 @@ def cluster_main_tsne(maindf,**kwargs):
     elif len(str(minCS))==3:
         filen_ext = '_minCS_'+str(minCS)+'_minS_'+str(minS)+'_CSM_'+CSM
     # make outdir if it does not exist
-    outdir = 'Permafrost/'+expt_name+'/bins/fasta/originals/'
+    #outdir = 'Permafrost/'+expt_name+'/bins/fasta/originals/'
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
@@ -132,7 +142,7 @@ def cluster_main_tsne(maindf,**kwargs):
     maindf[[xcol,ycol]] = maindf[[xcol,ycol]].astype(float)
     meanpos = maindf.groupby('DBclusternum').mean()[[xcol,ycol]] #mean position in tSNE space
     #stats = df_in[df_in['subclusternum']!=-1].groupby('subclusternum').sum()[['Sequence Length','Read Depth']] # sequence length and # 	contigs for
-    maindf[['Sequence Length','Read Depth']] = maindf[['Sequence Length','Read Depth']].astype(int)
+    #maindf[['Sequence Length','Read Depth']] = maindf[['Sequence Length','Read Depth']].astype(int)
     stats = maindf.groupby('DBclusternum').sum()[['Sequence Length','Read Depth']] # sequence length and # contigs for
     stats.rename(index=str,columns={'Read Depth':'# contigs'},inplace=True)
     params = pd.DataFrame.from_dict(kwargs,orient='index')#
@@ -143,7 +153,7 @@ def cluster_main_tsne(maindf,**kwargs):
     gs = gridspec.GridSpec(2,3)
 
     ax1 = f.add_subplot(gs[:,0:2]) #main tSNE
-    maindf.plot.scatter(xcol,ycol,s=size.divide(3e2).astype(int),alpha=.05,ax=ax1,c=colors)
+    maindf.plot.scatter(xcol,ycol,s=size.divide(3e2).astype(float),alpha=.05,ax=ax1,c=colors)
     plt.xlabel('tSNE 1');plt.ylabel('tSNE 2')
     #plt.text(80,20,params)
     #for txt in meanpos.index:

@@ -36,13 +36,14 @@ Created 2019-03-13	Bojk Berghuis
 Functions:
 """
 def perform_PCA(kmer_df):
-    x = StandardScaler().fit_transform(kmer_df)
+    #x = StandardScaler().fit_transform(kmer_df)
     if len(kmer_df.T)<1000:
         n_comp = len(kmer_df.T)
     else:
-        n_comp = 1e3
+        n_comp = 1000
     pca = PCA(n_components=n_comp)
-    principalComp = pca.fit_transform(x)
+    
+    principalComp = pca.fit_transform(kmer_df)
     princdf = pd.DataFrame(principalComp)
     princdf.index =kmer_df.index
     return(princdf)
@@ -51,6 +52,25 @@ def make_tsne_from_df(df,contig_df,maindir,savename):
     # compute tsne
     x = StandardScaler().fit_transform(df)
     x_emb = TSNE(n_components=2,perplexity=40,random_state=23944).fit_transform(x)
+    tsnedf = pd.DataFrame(x_emb,index=df.index)
+    tsnedf = tsnedf.join(contig_df['Sequence length'])
+    tsnedf = tsnedf.join(contig_df['GC'])
+    if firstround=='YES' and complete_analysis=='YES':
+        #tsnedf['genome'] = [f.split('_')[0] for f in tsnedf.index]
+        tsnedf.to_pickle(maindir+'tsnedf_'+savename+'.pickle')
+    if complete_analysis!='YES':
+        # calculate cluster quality
+        #QCdf = make_QCdf_from_tsnedf(tsnedf)
+        # plot some metrics
+        plot_tsnedf_metrics(tsnedf,maindir,savename)
+        return tsnedf
+    else:
+        return tsnedf
+    
+def make_tsne_from_PCAdf(df,contig_df,maindir,savename):
+    # compute tsne
+    #x = StandardScaler().fit_transform(df)
+    x_emb = TSNE(n_components=2,perplexity=40,random_state=23944).fit_transform(df)
     tsnedf = pd.DataFrame(x_emb,index=df.index)
     tsnedf = tsnedf.join(contig_df['Sequence length'])
     tsnedf = tsnedf.join(contig_df['GC'])

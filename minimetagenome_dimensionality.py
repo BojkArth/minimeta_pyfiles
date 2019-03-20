@@ -69,7 +69,7 @@ def make_tsne_from_df(df,contig_df,maindir,savename):
 def plot_tsnedf_metrics(tsnedf,maindir,savename):
     f,ax = plt.subplots(1,1,figsize=(10,10))
     plt.scatter(tsnedf[0],tsnedf[1],s=tsnedf['Sequence length'].astype(float)/100,
-                alpha=.05,c=tsnedf['GC'],cmap='RdBu_r')
+                alpha=.3,c=tsnedf['GC'],cmap='RdBu_r')
     plt.title(savename+' colored by GC')
     f.savefig(maindir+'plots/tSNE_GC_'+savename+'.png')
     plt.close(f)
@@ -111,6 +111,7 @@ def perform_complete_analysis_Coverage(combined_df,kmerlength,contigdf,maindir,s
     else:
         print('building tSNE of all '+str(num_dims)+' dimensions')
         tsnedf_main = make_tsne_from_df(kmerdf_norm,contigdf,maindir,savename) ##################################################
+        plot_tsnedf_metrics(tsnedf_main,maindir,savename)
         end = time.time()
         print('finished building main tSNE, this took {:.2f} seconds'.format(end - start_time))
         print('performing cluster sweep of tSNE of all '+str(num_dims)+' dimensions')
@@ -158,6 +159,7 @@ def perform_complete_analysis_Coverage(combined_df,kmerlength,contigdf,maindir,s
         print('building tSNE of '+str(numpcs)+' PCs')
         start = time.time()
         tsnedf_temp = make_tsne_from_df(pcdf.iloc[:,:numpcs+1],contigdf,maindir,savename) ##################################################
+        plot_tsnedf_metrics(tsnedf_temp,maindir,savename+str(numpcs)+'_PCs')
         end = time.time()
         print('finished building tSNE of '+str(numpcs)+' PCs, this took {:.2f} seconds'.format(end - start))
 
@@ -172,6 +174,7 @@ def perform_complete_analysis_Coverage(combined_df,kmerlength,contigdf,maindir,s
         """
         keys = [0,1];values = ['x_PC'+str(numpcs),'y_PC'+str(numpcs)]
         newnames = dict(zip(keys,values))
+        print(tsnedf_temp.columns)
         tsnedf_main = tsnedf_main.join(tsnedf_temp[[0,1]])
         tsnedf_main.rename(index=str,columns=newnames,inplace=True)
         tsnedf_main.to_pickle(maindir+savename.split('_')[0]+str(kmer_length)+'mers_all_tSNEs_temp')

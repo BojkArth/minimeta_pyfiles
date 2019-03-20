@@ -311,7 +311,7 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,**kwargs):
     	savename
     	coverage_included
     """
-    maindir,savename,coverage = kwargs['maindir'],kwargs['savename'],kwargs['coverage_included']
+    maindir,savename,coverage,scaling = kwargs['maindir'],kwargs['savename'],kwargs['coverage_included'],kwargs['scaling']
     global num_kmers
     num_kmers = len(kmerdf.T)
     kmer_length = int(np.log(num_kmers)/np.log(4))
@@ -325,9 +325,9 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,**kwargs):
     global firstround
     firstround = 'YES'
     if kmer_length==5:
-        pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[3:-1]]
+        pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[8:-4]]
     elif kmer_length>=6:
-        pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[8:]]
+        pcs_to_reduce = [int(round(f)) for f in np.logspace(0,3,20)[8:-4]]
     else:
         print('define range of PCs first!')
         return 0
@@ -347,9 +347,14 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,**kwargs):
         tsnedf_main = pd.read_pickle(maindir+'tsnedf_'+savename+'.pickle')
         plot_tsnedf_metrics(tsnedf_main,maindir,savename+'_'+str(num_kmers)+'_dimensions')
     else:
-        print('building tSNE of all '+str(num_kmers)+' dimensions')
-        tsnedf_main = make_tsne_from_df(kmerdf_norm,contigdf,statsdf,maindir,savename)
+        if scaling==True:
+            print('building tSNE of all '+str(num_kmers)+' dimensions')
+            tsnedf_main = make_tsne_from_df(kmerdf_norm,contigdf,statsdf,maindir,savename)
+        elif scaling==False:
+            print('building tSNE of all '+str(num_kmers)+' dimensions, scaling done')
+            tsnedf_main = make_tsne_from_df(kmerdf_norm,contigdf,statsdf,maindir,savename)
         end = time.time()
+        plot_tsnedf_metrics(tsnedf_main,maindir,savename+'_'+str(num_kmers)+'_dimensions')
         print('finished building main tSNE, this took {:.2f} seconds'.format(end - start_time))
         print('performing cluster sweep of tSNE of all '+str(num_kmers)+' dimensions')
     ##################################################
@@ -387,9 +392,14 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,**kwargs):
             [pcs_to_reduce.remove(f) for f in pcs_done]
             print('Some tSNEs already calculated, resuming at dim reduction of '+str(pcs_to_reduce[0])+' PCs')
     else:
-        print('Performing PCA...')
-        pcdf = perform_PCA(kmerdf_norm)
-        pcdf.to_pickle(maindir+'PCAdf_'+savename+'.pickle')
+        if scaling==True:
+            print('Performing PCA...')
+            pcdf = perform_PCA(kmerdf_norm)
+            pcdf.to_pickle(maindir+'PCAdf_'+savename+'.pickle')
+        elif scaling==False:
+            print('Performing PCA...')
+            pcdf = perform_PCA_ns(kmerdf_norm)
+            pcdf.to_pickle(maindir+'PCAdf_unscaled_'+savename+'.pickle')
         print('PCA done and saved.')
     ##################################################
     ##################################################
@@ -398,7 +408,7 @@ def perform_complete_analysis(kmerdf,contigdf,statsdf,**kwargs):
     for numpcs in pcs_to_reduce:
         print('building tSNE of '+str(numpcs)+' PCs')
         start = time.time()
-        tsnedf_temp = make_tsne_from_df(pcdf.iloc[:,:numpcs+1],contigdf,statsdf,maindir,savename)
+        tsnedf_temp = make_tsne_from_df_ns(pcdf.iloc[:,:numpcs+1],contigdf,statsdf,maindir,savename)
         end = time.time()
         print('finished building tSNE of '+str(numpcs)+' PCs, this took {:.2f} seconds'.format(end - start))
         
@@ -558,6 +568,14 @@ def perform_PCA(kmer_df):
     princdf.index =kmer_df.index
     return(princdf)
 
+def perform_PCA_ns(kmer_df): #no scaling version
+    #x = StandardScaler().fit_transform(kmer_df)
+    pca = PCA(n_components=num_kmers)
+    principalComp = pca.fit_transform(kmer_df)
+    princdf = pd.DataFrame(principalComp)
+    princdf.index =kmer_df.index
+    return(princdf)
+
 def make_tsne_from_df(df,contig_df,stats_df,maindir,savename):
     # compute tsne
     x = StandardScaler().fit_transform(df)
@@ -577,14 +595,34 @@ def make_tsne_from_df(df,contig_df,stats_df,maindir,savename):
     else:
         return tsnedf
 
-def plot_tsnedf_metrics(tsnedf,stats_df,QCdf,maindir,savename):
+def make_tsne_from_df_ns(df,contig_df,stats_df,maindir,savename): #no scaling version
+    # compute tsne
+    #x = StandardScaler().fit_transform(df)
+    x_emb = TSNE(n_components=2,perplexity=40,random_state=23944).fit_transform(df)
+    tsnedf = pd.DataFrame(x_emb,index=df.index)
+    tsnedf = tsnedf.join(contig_df['Sequence length'])
+    tsnedf = tsnedf.join(contig_df['GC'])
+    if firstround=='YES' and complete_analysis=='YES':
+        tsnedf['genome'] = [f.split('_')[0] for f in tsnedf.index]
+        tsnedf.to_pickle(maindir+'tsnedf_'+savename+'.pickle')
+    if complete_analysis!='YES':
+        # calculate cluster quality
+        QCdf = make_QCdf_from_tsnedf(tsnedf)
+        # plot some metrics
+        plot_tsnedf_metrics(tsnedf,stats_df,QCdf)
+        return tsnedf, QCdf
+    else:
+        return tsnedf
+
+
+def plot_tsnedf_metrics(tsnedf,maindir,savename):
     f,ax = plt.subplots(1,1,figsize=(10,10))
     plt.scatter(tsnedf[0],tsnedf[1],s=tsnedf['Sequence length'].astype(float)/100,
                 alpha=.05,c=tsnedf['GC'],cmap='RdBu_r')
     f.savefig(maindir+'plots/tSNE_GC_'+savename+'.png')
     plt.close(f)
 
-    f,ax = plt.subplots(figsize=(8,8))
+    """f,ax = plt.subplots(figsize=(8,8))
     ax.scatter(stats_df['frag_GC'],QCdf['norm_mean_dist'],
                s=stats_df['frag_totlen'].divide(3e3),alpha=.4,
               c=stats_df['kmer_variance'],cmap='RdBu_r')
@@ -600,7 +638,7 @@ def plot_tsnedf_metrics(tsnedf,stats_df,QCdf,maindir,savename):
     plt.xlabel('Normalized genome kmer variance')
     plt.ylabel('Mean contig distance (fraction of max contig distance)')
     f.savefig(maindir+'plots/genome_clusterQuality_'+savename+'_kmerVar.png')
-    plt.close(f)
+    plt.close(f)"""
 
 
 def make_QCdf_from_tsnedf(tsnedf,maindir,savename):

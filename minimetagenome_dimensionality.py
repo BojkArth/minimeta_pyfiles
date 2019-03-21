@@ -229,7 +229,7 @@ def plotPCs(tsnedf,main,maindir,savename):
         y = 'y_PC'+str(pc)
         f,ax = plt.subplots(figsize=(12,10))
         tsnedf.plot.scatter(x,y,c=tsnedf['GC'],s=tsnedf['Sequence length'].astype(float)/3e2
-                           ,alpha=.05,ax=ax,cmap='RdBu_r')
+                           ,alpha=.5,ax=ax,cmap='RdBu_r')
         plt.title(str(pc)+' PCs')
         f.savefig(maindir+'plots/tsne_'+savename+'_'+str(pc)+'PCs.png')
         plt.close(f)

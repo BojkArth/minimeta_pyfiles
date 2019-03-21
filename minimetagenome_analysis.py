@@ -156,8 +156,8 @@ def cluster_main_tsne(maindf,**kwargs):
     maindf.plot.scatter(xcol,ycol,s=size.divide(3e2).astype(float),alpha=.05,ax=ax1,c=colors)
     plt.xlabel('tSNE 1');plt.ylabel('tSNE 2')
     #plt.text(80,20,params)
-    #for txt in meanpos.index:
-    #    ax1.annotate(str(txt), (meanpos.loc[txt,xcol],meanpos.loc[txt,ycol]))
+    for txt in meanpos.index:
+        ax1.annotate(str(txt), (meanpos.loc[txt,xcol],meanpos.loc[txt,ycol]))
     plt.suptitle(filename+filen_ext)
 
     ## print subcluster stats (#contigs, length)

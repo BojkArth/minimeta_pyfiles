@@ -43,7 +43,7 @@ def make_checkm_output_df(indir,filen):
 
     meta = meta.join(strhet['Strain heterogeneity'])
     meta = meta.sort_values('Completeness',ascending=False)
-    meta.to_csv(indir+filen+'.txt','\t')
+    #meta.to_csv(indir+filen+'.txt')
     meta.to_pickle(indir+filen)
     return(meta)
 

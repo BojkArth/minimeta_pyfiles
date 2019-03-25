@@ -142,7 +142,8 @@ def cluster_main_tsne(maindf,**kwargs):
     maindf[[xcol,ycol]] = maindf[[xcol,ycol]].astype(float)
     meanpos = maindf.groupby('DBclusternum').mean()[[xcol,ycol]] #mean position in tSNE space
     #stats = df_in[df_in['subclusternum']!=-1].groupby('subclusternum').sum()[['Sequence Length','Read Depth']] # sequence length and # 	contigs for
-    #maindf[['Sequence Length','Read Depth']] = maindf[['Sequence Length','Read Depth']].astype(int)
+    maindf[['Sequence Length','Read Depth']] = maindf[['Sequence Length','Read Depth']].astype(int)
+    #print(maindf.groupby('DBclusternum').sum()[['Sequence Length','Read Depth']].head())
     stats = maindf.groupby('DBclusternum').sum()[['Sequence Length','Read Depth']] # sequence length and # contigs for
     stats.rename(index=str,columns={'Read Depth':'# contigs'},inplace=True)
     params = pd.DataFrame.from_dict(kwargs,orient='index')#

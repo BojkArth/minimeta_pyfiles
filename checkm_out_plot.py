@@ -94,7 +94,7 @@ def compare_two_checkmdfs_sina(df1,df2,hue_name,savedir,savename):
     dfviolin = pd.melt(dfcompare,value_vars=['Completeness','Contamination','Strain heterogeneity']
     			,id_vars=hue_name)
     dfviolin['value_int'] = dfviolin['value'].astype(int)
-
+    cat1,cat2 = dfviolin[hue_name].unique()[0],dfviolin[hue_name].unique()[1]
     f = plt.figure()
     sin.sinaplot(x='variable',y='value_int', hue=hue_name, data=dfviolin,split=True,inner='quartile',violin=True,violin_facealpha=0.250)#,bw=.15)
     plt.xlabel('');plt.ylabel('%')
@@ -102,7 +102,7 @@ def compare_two_checkmdfs_sina(df1,df2,hue_name,savedir,savename):
     plt.ylim(top=120,bottom=-20)
     #plt.legend(loc='lower right')
     plt.legend(loc='lower center', ncol=2)
-    plt.title('N = '+str(len(df1)))
+    plt.title('N '+cat1+'= '+str(len(df1))+', N '+cat2+'= '+str(len(df2)))
     f.set_figheight(7)
     f.set_figwidth(7)
     f.savefig(savedir+savename+'.png')

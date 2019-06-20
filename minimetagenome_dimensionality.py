@@ -399,3 +399,41 @@ def color_top1pct_family(tsnedf,maindf):
         lut[phy] = (0.843, 0.858, 0.937) # any phylum that occurs in less than 1% of contigs will get this color
     color = maindf.loc[idx,'Lineage Family'].map(lut)
     return color,lut
+
+
+def distance_metric_brian(input_chipdf,threshold):
+    # compute pairwise distance between each minimeta contig based on well presence
+    # null-hypothesis: co-occurrence(x,y) = uncorrelated
+    # A: number of wells where x AND y are present
+    # B: x present, y absent
+    # C: x absent, y present
+    # D: x and y absent
+
+    #p-value: \frac{(a+b)!(c+d)!(a+c)!(b+d)!}{a!b!c!d!(a+b+c+d)!}
+
+    thresdf = input_chipdf[input_chipdf>threshold]
+    thresdf = thresdf.divide(thresdf) #df with ones or zeroes
+
+    distancedf = pd.DataFrame(index=thresdf.index, columns=thresdf.index)
+
+    for contig in distancedf.columns:
+        distancedf[contig] = distance_calc(thresdf.loc[contig], thresdf)
+
+
+
+def distance_calc(p1,p2):
+    #a =
+
+
+
+
+    """x1 = p1[0];y1 = p1[1]
+    x2 = p2[0];y2 = p2[1]
+    dist = np.sqrt((x2-x1)**2+(y2-y1)**2)"""
+    return dist
+
+def distance_matrix_from_tsne(tSNE_df):
+    dist_matrix = pd.DataFrame(index=tSNE_df.index,columns=tSNE_df.index)
+    for contig in dist_matrix.columns:
+        dist_matrix[contig] = distance_calc(tSNE_df.loc[contig],tSNE_df)
+    return dist_matrix

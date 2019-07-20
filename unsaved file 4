@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+import pandas as pd
+import numpy as np
+import loompy
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib import gridspec
+import matplotlib as mpl
+import loompy
+import scipy.sparse as sparse
+import leidenalg as la
+import igraph as ig
+import time
+import json
+import os
+import errno
+from sklearn.manifold import TSNE
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+
+import sys
+sys.path.append('/home/bojk/Data/minimeta_pyfiles/')
+
+mpl.rcParams['axes.labelsize'] = 22
+mpl.rcParams['xtick.labelsize'] = 22
+mpl.rcParams['ytick.labelsize'] = 22
+mpl.rcParams['axes.titlesize'] = 24
+mpl.rcParams['figure.titlesize'] = 30
+mpl.rcParams['legend.fontsize'] = 14
+
+"""
+Created 2019-06-19, Bojk Berghuis
+
+preprocessing()     Go from counttable to distance matrix (cell distance). At this point pairwise Pearson correlation of
+                                logtransformed counts ENSG genes only, no selection. This might need further improvement or change.
+run_leiden_all()     gets nearest neigbor pairs from precomputed distance matrix, forms clusters based on
+                                these pairs and a resolution parameter.
+                                Plots and saves figures to 'savedir'.
+preprocessing_normCounttab()        similar to preprocessing, but with a normalized counttable as input.
+"""

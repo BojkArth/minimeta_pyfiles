@@ -288,7 +288,7 @@ def semiAnnotate_to_pca_to_tsnedf(feature_selected_matrix,weights,atlas_metadata
     new_classes = a[a>(n_fixed-1)]
     vals = list(weighted_tSNE.index[:n_fixed])
     for i in range(len(new_classes)):
-        vals.append('newClass'+str(i+1))
+        vals.append('newClass'+str("{0:0=2d}".format(i+1)))
     lutcl = dict(zip(class_numbers,vals))
     weighted_tSNE['new_membership'] = weighted_tSNE['class'].map(lutcl)
     tsne_df = weighted_tSNE.join(Unweighted_tSNE[['uDim1','uDim2']])
@@ -345,7 +345,7 @@ def semiAnnotate_using_tsnedf(feature_selected_matrix,weights,atlas_metadata,new
     new_classes = a[a>(n_fixed-1)]
     vals = list(tsnedf.index[:n_fixed])
     for i in range(len(new_classes)):
-        vals.append('newClass'+str(i+1))
+        vals.append('newClass'+str("{0:0=2d}".format(i+1)))
     lutcl = dict(zip(class_numbers,vals))
     tsnedf['new_membership'] = tsnedf['class'].map(lutcl)
     tsne_df = tsnedf.copy()#

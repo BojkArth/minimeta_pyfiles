@@ -39,6 +39,28 @@ If you just want to order a correlation matrix ('Pearson correlation')
 
 """
 
+def make_dotplot(feat_sel_matrix,tsne_df,numgenes,**kwargs):
+    column_name = kwargs['right_column']
+    gene_panel,panel_overdisp,genes_OD,avg_exp = make_top_genes(feat_sel_matrix,tsne_df,column_name,numgenes)
+    savedir = kwargs['savedir']
+    savename = kwargs['figure_name']
+    genes_OD.to_csv(savedir+'gene_table_'+savename+'.csv')
+
+    #use this if you want optimal ordered classes:
+    #index,cols = ordered_classes(panel_overdisp)
+
+    # use this if you just want the diagonal:
+    cols = genes_OD.columns.sort_values()
+    index = genes_OD[cols[0]]
+    for celltype in cols[1:]:
+        index = index.append(genes_OD[celltype]).reset_index(drop=True)
+    index = index[::-1]
+
+    kwargs['figure_name'] = kwargs['figure_name']+'_overdispersed_'
+    plot_dot(panel_overdisp,index,cols,**kwargs)
+    return panel_overdisp,index,cols,genes_OD,avg_exp
+
+
 def _optimal_order(data, **kwargs):
     """ Optimal leaf ordering
         **kwargs passed to pdist e.g. metric='correlation'
@@ -87,7 +109,7 @@ def make_top_genes(feat_sel_matrix,tsne_df,column_name,numgenes):
         members = tsne_df[tsne_df[column_name]==group].index
         panel[group] = feat_sel_matrix.loc[panel.index,members].mean(axis=1)
         panel_OD[group] = feat_sel_matrix.loc[panel_OD.index,members].mean(axis=1)
-    return panel,panel_OD,genes_OD
+    return panel,panel_OD,genes_OD,class_exp
 
 def ordered_classes(panel):
     row_link = _optimal_order(panel.T.corr(), metric='correlation')
@@ -146,17 +168,4 @@ def plot_dot(panel,rows,columns,**kwds):
     f.savefig(savedir+'dotplot_log2_'+figname+'.pdf')
     plt.close(f)
 
-def make_dotplot(feat_sel_matrix,tsne_df,numgenes,**kwargs):
-    column_name = kwargs['right_column']
-    gene_panel,panel_overdisp,genes_OD = make_top_genes(feat_sel_matrix,tsne_df,column_name,numgenes)
-    savedir = kwargs['savedir']
-    savename = kwargs['figure_name']
-    genes_OD.to_csv(savedir+'gene_table_'+savename+'.csv')
-    #r,c = ordered_classes(gene_panel)
-    rOD,cOD = ordered_classes(panel_overdisp)
-    #kwargs['figure_name'] = kwargs['figure_name']+'_topExpressing_'
-    #plot_dot(gene_panel,r,c,**kwargs)
-    kwargs['figure_name'] = kwargs['figure_name']+'_overdispersed_'
-    plot_dot(panel_overdisp,rOD,cOD,**kwargs)
-    return panel_overdisp,rOD,cOD,genes_OD
     

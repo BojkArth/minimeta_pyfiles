@@ -39,7 +39,7 @@ If you just want to order a correlation matrix ('Pearson correlation')
 
 """
 
-def make_dotplot(feat_sel_matrix,tsne_df,numgenes,**kwargs):
+def make_dotplot(feat_sel_matrix,tsne_df,numgenes,colorlist=None,**kwargs):
     column_name = kwargs['right_column']
     gene_panel,panel_overdisp,genes_OD,avg_exp = make_top_genes(feat_sel_matrix,tsne_df,column_name,numgenes)
     savedir = kwargs['savedir']
@@ -57,7 +57,10 @@ def make_dotplot(feat_sel_matrix,tsne_df,numgenes,**kwargs):
     index = index[::-1]
 
     kwargs['figure_name'] = kwargs['figure_name']+'_overdispersed_'
-    plot_dot(panel_overdisp,index,cols,**kwargs)
+    if colorlist is not None:
+        plot_dot(panel_overdisp,index,cols,colorlist,**kwargs)
+    else:
+        plot_dot(panel_overdisp,index,cols,**kwargs)
     return panel_overdisp,index,cols,genes_OD,avg_exp
 
 
@@ -132,15 +135,17 @@ def order_correlation_matrix(matrix):
     row_names = list(matrix.iloc[rows].index)
     return row_names
 
-def plot_dot(panel,rows,columns,**kwds):
+def plot_dot(panel,rows,columns,colorlist=None,**kwds):
     figname = kwds['figure_name']
     savedir = kwds['savedir']
     xgrid = list(range(len(panel.columns)))
     ygrid = list(range(40))
     import get_timestamp as time
     date = time.ymd()
+    height = 20
+    width = 7
     if len(panel)<50:
-        f = plt.figure(figsize=(20,50))
+        f = plt.figure(figsize=(width,height))
     else:
         f = plt.figure(figsize=(20,len(panel)))
     i=0
@@ -154,14 +159,18 @@ def plot_dot(panel,rows,columns,**kwds):
     f.savefig(savedir+'dotplot_'+figname+'.pdf')
     plt.close(f)
     if len(panel)<50:
-        f = plt.figure(figsize=(20,50))
+        f = plt.figure(figsize=(width,height))
     else:
         f = plt.figure(figsize=(20,len(panel)))
     i=0
     for gene in panel.loc[rows].index:
         temp = panel[panel.index==gene].loc[:,columns]
-        plt.scatter(xgrid,np.ones(len(xgrid))*i,s=np.log2(temp).multiply(70),alpha=.8)
+        if colorlist is not None:
+            plt.scatter(xgrid,np.ones(len(xgrid))*i,s=np.log2(temp).multiply(70),c=colorlist,alpha=.8)
+        else:
+            plt.scatter(xgrid,np.ones(len(xgrid))*i,s=np.log2(temp).multiply(70),alpha=.8)
         i+=1
+    plt.gcf().subplots_adjust(left=.28,right=0.98,bottom=.2)
     plt.yticks(np.arange(len(panel)),rows)
     plt.xticks(np.arange(len(panel.T)),columns,rotation=90)
     f.savefig(savedir+'dotplot_log2_'+figname+'.png')

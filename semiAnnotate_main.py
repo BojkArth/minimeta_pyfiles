@@ -330,7 +330,7 @@ def unweighted_PCA(data,n_pcs,n_fixed):
     Xnorm[np.isnan(Xnorm)] = 0
 
     # 2. PCA
-    pca = PCA(n_components=n_pcs,random_state=24330)
+    pca = PCA(n_components=n_pcs,random_state=24870)
     # rvects columns are the right singular vectors
     rvects = pca.fit_transform(Xnorm.T)
     princdf = pd.DataFrame(index=data.columns,data=rvects)
@@ -454,7 +454,7 @@ def semiAnnotate_to_pca_to_tsnedf(feature_selected_matrix,weights,atlas_metadata
         file.write(json.dumps(kwargs))
         file.close()
 
-    return tsne_df,class_numbers,vals
+    return tsne_df,class_numbers,vals,udistmat
 
 def semiAnnotate_using_tsnedf(feature_selected_matrix,weights,atlas_metadata,new_metadata,tsnedf,**kwargs):
 
@@ -470,7 +470,7 @@ def semiAnnotate_using_tsnedf(feature_selected_matrix,weights,atlas_metadata,new
         feature_selected_matrix.values,
         sizes=weights,
         n_fixed=n_fixed,
-        n_neighbors=5,
+        n_neighbors=25,
         n_pcs=n_pcs,
         distance_metric='correlation',
         threshold_neighborhood=thresn,
@@ -484,6 +484,7 @@ def semiAnnotate_using_tsnedf(feature_selected_matrix,weights,atlas_metadata,new
     else:
         sa(select_features=False)
 
+    # this is incorrect, fix it
     new_metadata['new_class'] = pd.Series(index=feature_selected_matrix.columns[n_fixed:],data=sa.membership)
 
 
@@ -540,6 +541,7 @@ def semiAnnotate_subsample(feature_selected_matrix,annot,atlas_metadata,new_meta
     #weighted_tSNE = perform_tSNE(weight_PCA)
     #weighted_tSNE.rename(index=str,columns={0:'wDim1',1:'wDim2'},inplace=True)
 
+
     # unweighted PCA
     normal_PCA,udistmat = unweighted_PCA(feature_selected_matrix,n_pcs,n_fixed)
 
@@ -547,18 +549,33 @@ def semiAnnotate_subsample(feature_selected_matrix,annot,atlas_metadata,new_meta
     Unweighted_tSNE.rename(index=str,columns={0:'uDim1',1:'uDim2'},inplace=True)
 
     Unweighted_tSNE['class'] = ''
-    Unweighted_tSNE['original_membership'] = new_metadata[cellT]
-    Unweighted_tSNE.iloc[n_fixed:,2]= sa.membership
+    Unweighted_tSNE['original_membership'] = ''
+
+    atlas_cells = list(np.sort(atlas_metadata[cellT].unique()))
+    nums = list(range(len(atlas_cells)))
+    lut = dict(zip(nums,atlas_cells))
+
     Unweighted_tSNE.iloc[:n_fixed,2] = annot
+
+    if len(new_metadata[cellT].dropna())>0:
+        Unweighted_tSNE['original_membership'] = new_metadata[cellT]
+    else:
+        Unweighted_tSNE['original_membership'] = Unweighted_tSNE['class'].map(lut)
+    Unweighted_tSNE.iloc[n_fixed:,2]= sa.membership
 
     a = np.array(list(set(sa.membership)))
     class_numbers = list(range(max(a+1)))
-    new_classes = a[a>(n_fixed-1)]
-    vals = list(Unweighted_tSNE.index[:n_fixed])
+    new_classes = a[a>(max(annot))]
+
+
+    #nums = list(range(len(atlas_cells)))
+    #celltype_dict = dict(zip(nums,atlas_cells))
+
+
     for i in range(len(new_classes)):
-        vals.append('newClass'+str("{0:0=2d}".format(i+1)))
-    lutcl = dict(zip(class_numbers,vals))
-    Unweighted_tSNE['new_membership'] = Unweighted_tSNE['class'].map(lutcl)
+        atlas_cells.append('newClass'+str("{0:0=2d}".format(i+1)))
+    celltype_dict = dict(zip(class_numbers,atlas_cells))
+    Unweighted_tSNE['new_membership'] = Unweighted_tSNE['class'].map(celltype_dict)
     tsne_df = Unweighted_tSNE.copy()
 
     # write params to json in new folder with date timestamp
@@ -573,7 +590,7 @@ def semiAnnotate_subsample(feature_selected_matrix,annot,atlas_metadata,new_meta
         file.write(json.dumps(kwargs))
         file.close()
 
-    return tsne_df,class_numbers,vals
+    return tsne_df,class_numbers,atlas_cells
 
 def make_pairs(distmat,threshold,max_neighbors):
     """
@@ -595,9 +612,11 @@ def make_pairs(distmat,threshold,max_neighbors):
     print('---------------------------------------')
     return pairs
 
-def make_pairdf(dist_matrix,NN,tsne_df):
+def make_pairdf(dist_matrix,NN,tsne_df,colname):
     """ returns a dataframe with pairs and some properties
     such as inter or intra class edge, eucledian distance between the two in the tsne plane"""
+    xcol = colname+'1'
+    ycol = colname+'2'
     pairs = make_pairs(dist_matrix,2,NN)
     pair_df = pd.DataFrame(pairs)
     for pair in pair_df.index:
@@ -616,10 +635,10 @@ def make_pairdf(dist_matrix,NN,tsne_df):
         pair_df.loc[pair,'correlation'] = 1 - dist_matrix.loc[cell1,cell2]
         pair_df.loc[pair,'distance'] = dist_matrix.loc[cell1,cell2]
         if  type(dist_matrix.index[0])==int:
-            xy1 = tsne_df.iloc[cell1][['wDim1','wDim2']]
-            xy2 = tsne_df.iloc[cell2][['wDim1','wDim2']]
+            xy1 = tsne_df.iloc[cell1][[xcol,ycol]]
+            xy2 = tsne_df.iloc[cell2][[xcol,ycol]]
         else:
-            xy1 = tsne_df.loc[cell1][['wDim1','wDim2']]
-            xy2 = tsne_df.loc[cell2][['wDim1','wDim2']]
+            xy1 = tsne_df.loc[cell1][[xcol,ycol]]
+            xy2 = tsne_df.loc[cell2][[xcol,ycol]]
         pair_df.loc[pair,'edge_length'] =  np.sqrt((xy2[0]-xy1[0])**2+(xy2[1]-xy1[1])**2)
     return pair_df

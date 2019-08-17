@@ -37,6 +37,14 @@ preprocessing()     Go from counttable to distance matrix (cell distance). At th
 run_leiden_all()     gets nearest neigbor pairs from precomputed distance matrix, forms clusters based on 
                                 these pairs and a resolution parameter. 
                                 Plots and saves figures to 'savedir'.
+                                    resolution_parameter = kwargs['resolution_parameter']
+                                    annotation = kwargs['annot_col']
+                                    NNeighbors = kwargs['k']
+                                    savedir = kwargs['save_dir']
+                                    tsnex = kwargs['tsnex']
+                                    tsney = kwargs['tsney']
+                                    subset = kwargs['color_subset_only'] # True==color only the top 15 largest clusters, others gray
+                                    num = kwargs['num_of_colors']
 preprocessing_normCounttab()        similar to preprocessing, but with a normalized counttable as input.
 """
 
@@ -51,21 +59,43 @@ def run_leiden_all(distance_matrix,meta_tSNE,**kwargs):
     return(meta_tSNE,pairs)
     
 
+
+def feature_select_counttable(counttable,metadata, nfeatures,**kwargs):
+    # Unbiased on new data
+    nd_mean = counttable.mean(axis=1)
+    nd_var = counttable.var(axis=1)
+    fano = (nd_var + 1e-10).divide(nd_mean + 1e-10)
+    overdispersed = np.argpartition(fano, -nfeatures)[-nfeatures:]
+    features = set(overdispersed)
+    print(features)
+    print('-------------------------------------------')
+    print('Combined total of selected genes:')
+    print(len(set(features)))
+    print('-------------------------------------------')
+
+    matrix_Feature_selected = counttable.iloc[list(features),:].copy()
+    savedir = kwargs['savedir']
+    name = kwargs['savename']
+    matrix_Feature_selected.to_csv(savedir+'/feature_selected_matrix'+name+'.csv')
+    return matrix_Feature_selected
     
 def preprocessing(countTab_path,meta_tSNE):
-    counttable = pd.read_csv(countTab_path,index_col=0) #e.g. 'Datasets/TuPaMetaDataDivya/CombinedCountTable.csv'
+    if type(countTab_path)==str:
+        counttable = pd.read_csv(countTab_path,index_col=0) #e.g. 'Datasets/TuPaMetaDataDivya/CombinedCountTable.csv'
+    else:
+        counttable = countTab_path
     entire_start = time.time()
     print('----------------------------------------------------')
     print('Loaded counttable, started processing')
     hour = time.localtime()[3];minute = time.localtime()[4]
     print('Local time: '+str(hour)+':'+str(minute))
     print('----------------------------------------------------')
-    norm_all = counttable.drop(counttable[counttable.T.sum()==0].index,axis=0).divide(meta_tSNE.nReads.divide(1e6))
+    norm_all = counttable.drop(counttable[counttable.T.sum()==0].index,axis=0).divide(meta_tSNE['n_reads'].divide(1e6))
     normlog2 = np.log2(norm_all+1)
     normlog2_nona = normlog2.dropna(how='all',axis=1)
-    normENS = normlog2_nona[normlog2_nona.index.str.contains('ENSG')].copy()
+    normENS = normlog2_nona[~normlog2_nona.index.str.contains('ENSG')].copy()
     normENS.drop(normENS[normENS.sum(axis=1).sort_values()==0].index,inplace=True)
-    distance_matrix = normENS.corr()
+    distance_matrix = 1-normENS.corr()
     
     entire_end = time.time()
     hour = time.localtime()[3]

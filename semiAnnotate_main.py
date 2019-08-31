@@ -384,6 +384,65 @@ def perform_tSNE(pca_df, perplexity=None):
     print('-------------------------------------------')
     return tsnedf
 
+def atlas_averages_to_tsnedf(new_metadata,new_counttable,**kwargs):
+    savedir = kwargs['savedir']
+    date = kwargs['timestamp']
+    n_pcs = kwargs['n_pcs']
+    atlas = kwargs['atlas']
+    cell_type_names = kwargs['CT_lut']
+
+    #instantiate class
+    sa = semiannotate.Averages(
+            atlas=atlas,
+            new_data=new_counttable,
+            n_cells_per_type=kwargs['weights_atlas_cells'],
+            n_features_per_cell_type=kwargs['n_features_per_cell_type'],
+            n_features_overdispersed=kwargs['n_features_overdispersed'],
+            n_pcs=n_pcs,
+            n_neighbors=kwargs['n_neighbors'],
+            n_neighbors_out_of_atlas=kwargs['n_neighbors_out_of_atlas'],
+            distance_metric='correlation',
+            threshold_neighborhood=kwargs['threshold_neighborhood'],
+            clustering_metric='cpm',
+            resolution_parameter=kwargs['resolution_parameter'],
+            normalize_counts=True,
+            )
+    sa()
+
+    # add new membership to metadata
+    idx = new_counttable.columns
+    n_fixed = len(sa.cell_types)
+    new_metadata.loc[idx,'new_class'] = sa.membership
+    new_metadata['new_class_renamed'] = [cell_type_names[f] if f in cell_type_names.keys else 'NewClass_'+str("{0:0=2d}".format(int(f)-n_fixed+1) if f.isdigit() else f for f in new_metadata['new_class']]
+
+    # unweighted PCA
+    cols = list(sa.cell_types)+list(GBM_counttable.columns)
+    feature_selected_matrix = pd.DataFrame(index=sa.features_selected,columns=cols,data=sa.matrix)
+    normal_PCA,udistmat = unweighted_PCA(feature_selected_matrix,n_pcs,n_fixed)
+
+    # perform tSNE
+    tsnedf = perform_tSNE(normal_PCA,20)
+    tsnedf.rename(index=str,columns={0:'Dim1',1:'Dim2'},inplace=True)
+    tsnedf.loc[idx,'new_membership'] = new_metadata.loc[idx,'new_class_renamed']
+    #tsnedf[:n_fixed]['new_membership']
+
+    # write params to json in new folder with date timestamp
+    output_file = savedir+date+'/annotation_parameters_'+atlas+'_CellAtlasAverages_'+date+'.json'
+    if not os.path.exists(os.path.dirname(output_file)):
+        try:
+            os.makedirs(os.path.dirname(output_file))
+        except OSError as exc:
+            if exc.errno != errno.EEXIST:
+                raise
+    with open(output_file, 'w') as file:
+        file.write(json.dumps(kwargs))
+        file.close()
+    atlastypes = list(map(cell_type_names.get, list(sa.cell_types)))
+    newtypes = list(map(cell_type_names.get, list(set(new_metadata['new_class_renamed'])))
+    celltypes = set(atlastypes+newtypes)
+
+    return tsnedf,celltypes
+
 def semiAnnotate_to_pca_to_tsnedf(feature_selected_matrix,weights,atlas_metadata,new_metadata,**kwargs):
     cellT = kwargs['cell type column']
     n_fixed = len(atlas_metadata[cellT].unique())
@@ -643,159 +702,3 @@ def make_pairdf(dist_matrix,NN,tsne_df,colname):
     return pair_df
 
 
-def plot_tsnes(tsnedf,class_numbers,class_labels,weights,new_metadata,colordict=None,**kwargs):
-
-    date = kwargs['timestamp']
-    savedir = kwargs['savedir']
-    thresn = kwargs['threshold_neigborhood']
-    n_pcs= kwargs['n_pcs']
-    respar = kwargs['resolution_parameter']
-    if colordict is None:
-        if len(class_labels)>8:
-            if (len(class_labels)-8) % 2 == 0:
-                added_colors = sns.color_palette('BrBG',len(class_labels)-8)
-            else:
-                all_colors = sns.color_palette('BrBG',len(class_labels)-7)
-                mid = round((len(all_colors)-1)/2)
-                added_colors = all_colors[:mid]+all_colors[mid+1:]
-            values = sns.color_palette('Paired', 10)[:6]+sns.color_palette('Paired',12)[8:10]+added_colors
-        else:
-            values = sns.color_palette('husl',len(class_labels))
-        #newlut = dict(zip(class_numbers,values))
-        newlut = dict(zip(class_labels,values))
-    else:
-        newlut = colordict
-
-    newcolor = tsnedf['new_membership'].map(newlut)
-    f,ax = plt.subplots(figsize=(12,10))
-    tsnedf.plot.scatter('uDim1','uDim2',s=weights*100
-                        ,alpha=.5,color=newcolor,ax=ax)
-    for x,y in newlut.items():
-        if x in class_labels:
-            plt.bar(0,0,color=y,label=x,alpha=1)
-    handles, labels = ax.get_legend_handles_labels()
-        #plt.legend(handles[:],labels[:],bbox_to_anchor=(-0.0, 1.08, 1., .102), loc=2,
-    plt.legend(handles,class_labels,bbox_to_anchor=(1, .9, .43, .102), loc=2,
-                   ncol=1, mode="expand",fontsize=15)
-    plt.title('Atlas-based annotation')
-    plt.xlim(-40,60)
-    plt.ylim(-60,30)
-    plt.gcf().subplots_adjust(left=.1,right=0.75)
-    f.savefig(savedir+date+'/sA_tSNE_'+date+'_nPCs='+str(n_pcs)+'_thresNeigh='+str(thresn)+'_respar='+str(respar)+'.png')
-    f.savefig(savedir+date+'/sA_tSNE_'+date+'_nPCs='+str(n_pcs)+'_thresNeigh='+str(thresn)+'_respar='+str(respar)+'.pdf')
-
-
-    atlas_ct = [f for f in class_labels if 'newClass' not in f]
-    num_AtlasCells = len(atlas_ct)
-    keys = new_metadata['Tumor'].unique()
-    newlut = dict(zip(keys,sns.color_palette('deep', len(keys)-2)+sns.color_palette('husl',2)))
-    newcolor = new_metadata['Tumor'].map(newlut)
-    f,ax = plt.subplots(figsize=(12,10))
-    tsnedf[num_AtlasCells:].plot.scatter('uDim1','uDim2',s=60
-                        ,alpha=.5,color=newcolor.loc[tsnedf[num_AtlasCells:].index],ax=ax)
-    for x,y in newlut.items():
-        plt.bar(0,0,color=y,label=x,alpha=1)
-        handles, labels = ax.get_legend_handles_labels()
-        #plt.legend(handles[:],labels[:],bbox_to_anchor=(-0.0, 1.08, 1., .102), loc=2,
-    plt.legend(handles,labels,bbox_to_anchor=(1, .9, .43, .102), loc=2,
-                   ncol=1, mode="expand",fontsize=15)
-    plt.title('Cell origin')
-    plt.gcf().subplots_adjust(left=.1,right=0.75)
-    f.savefig(savedir+date+'/TumorPatients_newtSNE.pdf')
-    f.savefig(savedir+date+'/TumorPatients_newtSNE.png')
-
-def plot_tsnes_subsample(tsnedf,class_numbers,class_labels,weights,new_metadata,colordict=None,**kwargs):
-
-    date = kwargs['timestamp']
-    savedir = kwargs['savedir']
-    thresn = kwargs['threshold_neigborhood']
-    n_pcs= kwargs['n_pcs']
-    respar = kwargs['resolution_parameter']
-    if colordict is None:
-        if len(class_labels)>8:
-            if (len(class_labels)-8) % 2 == 0:
-                added_colors = sns.color_palette('BrBG',len(class_labels)-8)
-            else:
-                all_colors = sns.color_palette('BrBG',len(class_labels)-7)
-                mid = round((len(all_colors)-1)/2)
-                added_colors = all_colors[:mid]+all_colors[mid+1:]
-            values = sns.color_palette('Paired', 10)[:6]+sns.color_palette('Paired',12)[8:10]+added_colors
-        else:
-            values = sns.color_palette('deep',len(class_labels))
-        newlut = dict(zip(class_numbers,values))
-    else:
-        newlut = colordict
-
-
-    newcolor = tsnedf['new_membership'].map(newlut)
-    "---------------------------------------------------------------------------------------------------------"
-    """ SHOW SUBSAMPLED CELLS"""
-    "---------------------------------------------------------------------------------------------------------"
-    newcolor_atlas = tsnedf['original_membership'].map(newlut).fillna('gray')
-    atlas_cells = tsnedf[~tsnedf.index.isin(new_metadata.index)].index
-
-    f,ax = plt.subplots(figsize=(12,10))
-    tsnedf.loc[new_metadata.index].plot.scatter('uDim1','uDim2',s=80
-                        ,alpha=.5,color=newcolor_atlas.loc[new_metadata.index],ax=ax)
-    tsnedf.loc[atlas_cells].plot.scatter('uDim1','uDim2',s=80
-                        ,alpha=.5,color=newcolor_atlas.loc[atlas_cells],ax=ax,marker='+')
-    for x,y in newlut.items():
-        plt.bar(0,0,color=y,label=x,alpha=1)
-        handles, labels = ax.get_legend_handles_labels()
-        #plt.legend(handles[:],labels[:],bbox_to_anchor=(-0.0, 1.08, 1., .102), loc=2,
-    plt.legend(handles,class_labels,bbox_to_anchor=(1, .9, .43, .102), loc=2,
-                   ncol=1, mode="expand",fontsize=15)
-    plt.title('Atlas-based annotation, subsampling')
-    plt.xlim(-40,40)
-    plt.ylim(-40,40)
-    plt.gcf().subplots_adjust(left=.1,right=0.75)
-    f.savefig(savedir+date+'/sA_subsamp_tSNE_'+date+'_nPCs='+str(n_pcs)+'_thresNeigh='+str(thresn)+'_respar='+str(respar)+'.png')
-    f.savefig(savedir+date+'/sA_subsamp_tSNE_'+date+'_nPCs='+str(n_pcs)+'_thresNeigh='+str(thresn)+'_respar='+str(respar)+'.pdf')
-
-
-    "---------------------------------------------------------------------------------------------------------"
-    """ SHOW NEW CLASSES"""
-    "---------------------------------------------------------------------------------------------------------"
-
-    f,ax = plt.subplots(figsize=(12,10))
-    tsnedf.loc[new_metadata.index].plot.scatter('uDim1','uDim2',s=100
-                        ,alpha=.7,color=newcolor.loc[new_metadata.index],ax=ax)
-    tsnedf.loc[atlas_cells].plot.scatter('uDim1','uDim2',s=260
-                        ,alpha=.7,color=newcolor.loc[atlas_cells],ax=ax,marker='*',linewidths=1)
-    for x,y in newlut.items():
-        if x in tsnedf['new_membership'].unique():
-            plt.bar(0,0,color=y,label=x,alpha=1)
-    handles, labels = ax.get_legend_handles_labels()
-        #plt.legend(handles[:],labels[:],bbox_to_anchor=(-0.0, 1.08, 1., .102), loc=2,
-    plt.legend(handles,class_labels,bbox_to_anchor=(1, .9, .43, .102), loc=2,
-                   ncol=1, mode="expand",fontsize=15)
-    plt.title('Atlas-based annotation')
-    plt.xlim(-30,30)
-    plt.ylim(-40,40)
-    plt.gcf().subplots_adjust(left=.1,right=0.75)
-    f.savefig(savedir+date+'/sA_subsamp2_tSNE_'+date+'_nPCs='+str(n_pcs)+'_thresNeigh='+str(thresn)+'_respar='+str(respar)+'.png')
-    f.savefig(savedir+date+'/sA_subsamp2_tSNE_'+date+'_nPCs='+str(n_pcs)+'_thresNeigh='+str(thresn)+'_respar='+str(respar)+'.pdf')
-
-    "---------------------------------------------------------------------------------------------------------"
-    """ SHOW CELL ORIGIN (or other metadata)"""
-    "---------------------------------------------------------------------------------------------------------"
-
-    num_AtlasCells = len(tsnedf['original_membership'].dropna())
-    keys = new_metadata['Tumor'].unique()
-    newlut = dict(zip(keys,sns.color_palette('Dark2', len(keys))))
-    newcolor = new_metadata['Tumor'].map(newlut)
-    f,ax = plt.subplots(figsize=(12,10))
-    tsnedf[num_AtlasCells:].plot.scatter('uDim1','uDim2',s=80
-                        ,alpha=.5,color=newcolor.loc[tsnedf[num_AtlasCells:].index],ax=ax)
-    for x,y in newlut.items():
-        plt.bar(0,0,color=y,label=x,alpha=1)
-        handles, labels = ax.get_legend_handles_labels()
-        #plt.legend(handles[:],labels[:],bbox_to_anchor=(-0.0, 1.08, 1., .102), loc=2,
-    plt.legend(handles,labels,bbox_to_anchor=(1, .9, .43, .102), loc=2,
-                   ncol=1, mode="expand",fontsize=15)
-    plt.title('Cell origin')
-    plt.xlim(-40,40)
-    plt.ylim(-40,40)
-    plt.gcf().subplots_adjust(left=.1,right=0.75)
-    f.savefig(savedir+date+'/TumorPatients_newtSNE_subsample.pdf')
-    f.savefig(savedir+date+'/TumorPatients_newtSNE_subsample.png')
